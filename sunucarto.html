@@ -1,0 +1,1341 @@
+<title>carto-cegit-map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Open+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout : bandeau de marque, introduction centrée sur la recherche, colonne de thèmes + grille de tuiles ; visionneuse = panneau de couches + carte plein cadre.
+   CHARTE : les couleurs --brand*, --accent* et --footer sont à remplacer par les codes de la charte CEGIT. */
+:root{
+  /* Charte CEGIT : orange #F39200, anthracite #3C3C3B, Ubuntu */
+  --bg:#F6F6F4; --surface:#FFFFFF; --soft:#EEEEEB; --line:#E2E2DE;
+  --fg:#2B2B2A; --muted:#5A5A57;
+  --brand:#3C3C3B; --brand-2:#B35F00; --brand-soft:#FDF0E1; --on-brand:#FFFFFF; --on-brand-muted:#D9D9D6;
+  --accent:#F39200; --accent-strong:#D46F00; --accent-soft:#FDEBD3; --accent-ink:#8A4700;
+  --head-bg:#FFFFFF; --head-fg:#3C3C3B;
+  --water:#2563A8; --water-soft:#A9C7E8;
+  --map-bg:#EDE8DE; --map-crop:#D3E2C6; --map-crop-line:#98B283; --map-road:#FFFFFF; --map-road-line:#BDB4A3; --map-corridor:#F8C98A; --map-ink:#2B2B2A; --map-halo:#FFFFFF; --map-limit:#3C3C3B;
+  --footer:#2B2B2A; --footer-fg:#D6D6D2;
+  --shadow:0 10px 24px rgba(30,30,30,.12);
+  --f-display:"Ubuntu",system-ui,sans-serif; --f-body:"Open Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#161615; --surface:#1F1F1E; --soft:#2A2A28; --line:#353533;
+  --fg:#EDEDEA; --muted:#B0B0AB;
+  --brand:#454543; --brand-2:#F5A33A; --brand-soft:#3A2A18; --on-brand:#FFFFFF; --on-brand-muted:#C9C9C5;
+  --accent:#F39200; --accent-strong:#D46F00; --accent-soft:#3A2A18; --accent-ink:#F7B866;
+  --head-bg:#1F1F1E; --head-fg:#EDEDEA;
+  --water:#6FA6E0; --water-soft:#2C4A6B;
+  --map-bg:#282825; --map-crop:#38482F; --map-crop-line:#566B4A; --map-road:#3E3E3A; --map-road-line:#5A5A54; --map-corridor:#8A5A28; --map-ink:#EDEDEA; --map-halo:#1F1F1E; --map-limit:#D6D6D2;
+  --footer:#0F0F0E; --footer-fg:#C9C9C5; --shadow:0 10px 24px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#161615; --surface:#1F1F1E; --soft:#2A2A28; --line:#353533;
+  --fg:#EDEDEA; --muted:#B0B0AB;
+  --brand:#454543; --brand-2:#F5A33A; --brand-soft:#3A2A18; --on-brand:#FFFFFF; --on-brand-muted:#C9C9C5;
+  --accent:#F39200; --accent-strong:#D46F00; --accent-soft:#3A2A18; --accent-ink:#F7B866;
+  --head-bg:#1F1F1E; --head-fg:#EDEDEA;
+  --water:#6FA6E0; --water-soft:#2C4A6B;
+  --map-bg:#282825; --map-crop:#38482F; --map-crop-line:#566B4A; --map-road:#3E3E3A; --map-road-line:#5A5A54; --map-corridor:#8A5A28; --map-ink:#EDEDEA; --map-halo:#1F1F1E; --map-limit:#D6D6D2;
+  --footer:#0F0F0E; --footer-fg:#C9C9C5; --shadow:0 10px 24px rgba(0,0,0,.45); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.45}
+a{color:var(--brand-2)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.ico{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.wrap{max-width:1320px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance}
+
+/* En-tête */
+.top{background:var(--brand);color:var(--on-brand);position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:12px;color:var(--on-brand);text-decoration:none}
+.brand-mark{width:42px;height:42px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#fff}
+.brand-name{font-family:var(--f-display);font-weight:700;font-size:21px;letter-spacing:-.01em;display:block;line-height:1.1}
+.brand-sub{font-size:14px;color:var(--on-brand-muted)}
+.search{flex:1 1 300px;display:flex;justify-content:center}
+.search-box{position:relative;width:100%;max-width:460px}
+.search-box svg{position:absolute;left:14px;top:12px;color:#5B6660}
+.search-box input{width:100%;height:44px;border:0;border-radius:10px;padding:0 14px 0 44px;background:#FFFFFF;color:#1B2A24}
+.top-nav{display:flex;gap:8px;flex-wrap:wrap}
+.btn-ghost{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:8px;color:var(--on-brand);text-decoration:none;background:transparent;border:0;cursor:pointer}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-light{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:8px;background:#FFFFFF;color:#1E4D3A;font-weight:600;border:0;cursor:pointer;text-decoration:none}
+
+/* Accueil */
+.hero{border-bottom:1px solid var(--line);background:var(--surface)}
+.hero .wrap{padding-block:48px 40px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.hero h1{margin:0;font-size:clamp(26px,3.6vw,38px);line-height:1.18;font-weight:600;letter-spacing:-.015em;max-width:28ch}
+.hero p.lead{margin:0;font-size:17px;line-height:1.65;color:var(--muted);max-width:72ch;text-wrap:pretty}
+.big-search{display:flex;gap:8px;max-width:720px;width:100%;flex-wrap:wrap;margin-top:8px;text-align:left}
+.big-search .field{position:relative;flex:1 1 280px}
+.big-search .field svg{position:absolute;left:16px;top:16px;color:var(--muted)}
+.big-search input{width:100%;height:56px;border:2px solid var(--line);border-radius:12px;padding:0 16px 0 50px;background:var(--bg);font-size:17px}
+.big-search input:focus{border-color:var(--brand-2);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
+.big-search .go{height:56px;padding:0 22px;border:0;border-radius:12px;background:var(--brand);color:var(--on-brand);font-weight:600;font-size:16px;cursor:pointer}
+.quick{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.quick-l{font-size:14px;color:var(--muted);margin-right:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--fg);cursor:pointer;font-size:15px}
+.chip:hover{border-color:var(--brand-2);background:var(--brand-soft)}
+.note{margin:0;padding:10px 14px;background:var(--accent-soft);border-radius:10px;font-size:15px;color:var(--accent-ink);max-width:62ch}
+.home{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;padding-block:28px 56px}
+.themes{flex:1 1 250px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.themes h2{margin:4px 8px 10px;font-size:15px;font-weight:600;color:var(--muted)}
+.themes ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.th{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:transparent;text-align:left;cursor:pointer}
+.th:hover{background:var(--brand-soft)}
+.th .n{min-width:28px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
+.th[aria-pressed="true"]{background:var(--brand);color:var(--on-brand);font-weight:600}
+.th[aria-pressed="true"] .n{background:var(--brand-2);color:var(--on-brand)}
+.th .lbl{display:flex;align-items:center;gap:10px}
+.th .lbl svg{color:var(--brand-2)}
+.th[aria-pressed="true"] .lbl svg{color:var(--on-brand)}
+@media (max-width:820px){
+  .themes{flex-basis:100%;padding:10px}
+  .themes h2{display:none}
+  .themes ul{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:4px;scrollbar-width:thin}
+  .th{white-space:nowrap;border:1px solid var(--line);border-radius:999px;width:auto}
+}
+.content{flex:999 1 560px;min-width:0}
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+.tabs{display:flex;gap:4px;padding:4px;background:var(--soft);border-radius:12px}
+.tab{min-height:44px;padding:0 16px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.count{margin:0;color:var(--muted)} .count strong{color:var(--fg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:16px}
+.tile{position:relative;display:flex;flex-direction:column;gap:14px;min-height:192px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;color:var(--fg);text-decoration:none;text-align:left;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.tile:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--brand-2)}
+.tile .ic{width:62px;height:62px;border-radius:16px;background:var(--brand-soft);color:var(--brand-2);display:grid;place-items:center}
+.tile .t{font-family:var(--f-display);font-size:17px;font-weight:500;line-height:1.3}
+.tile .meta{margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.lock{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.empty{padding:48px 24px;background:var(--surface);border:1px dashed var(--line);border-radius:14px;text-align:center;color:var(--muted)}
+
+footer{background:var(--footer);color:var(--footer-fg);font-size:15px}
+footer a{color:var(--footer-fg);text-decoration:none}
+footer a:hover{color:#FFFFFF;text-decoration:underline}
+.f-main{padding-block:44px 32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:32px}
+.f-col h2{margin:0 0 14px;font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#FFFFFF}
+.f-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.f-brand p{margin:12px 0 0;max-width:34ch;line-height:1.5}
+.f-contact li{display:flex;gap:10px;align-items:flex-start}
+.f-contact svg{margin-top:2px;color:var(--accent)}
+.copy{border:1px solid #3A4A42;background:transparent;color:var(--footer-fg);border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer;margin-left:6px}
+.copy:hover{border-color:var(--footer-fg)}
+.f-bottom{border-top:1px solid #2E3A33}
+.f-bottom .wrap{padding-block:18px;display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:center;font-size:14px}
+.demo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.demo select{min-height:40px;border-radius:2px;border:1px solid #55554F;background:#3A3A38;color:#EDEDEA;padding:0 10px}
+.copy{border-color:#55554F!important}
+.f-bottom{border-top-color:#3A3A38!important}
+
+/* Visionneuse */
+.viewer{display:flex;flex-wrap:wrap;min-height:calc(100vh - 68px)}
+.panel{flex:1 1 300px;max-width:100%;background:var(--surface);border-right:1px solid var(--line);padding:22px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:22px}
+.crumbs{font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.crumbs button{border:0;background:none;padding:0;color:var(--brand-2);cursor:pointer;text-decoration:underline}
+.panel h1{margin:2px 0 0;font-size:25px;font-weight:600}
+.panel p.desc{margin:8px 0 0;font-size:15px;color:var(--muted)}
+fieldset{border:0;margin:0;padding:0}
+legend{font-family:var(--f-display);font-weight:600;margin-bottom:8px}
+.lyr{display:flex;align-items:center;gap:12px;min-height:44px;padding:4px 8px;border-radius:8px;cursor:pointer}
+.lyr:hover{background:var(--brand-soft)}
+.lyr input{width:20px;height:20px;accent-color:var(--brand-2);margin:0}
+.lyr span{flex:1}
+.fonds{display:flex;gap:8px;flex-wrap:wrap}
+.fonds label{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.fonds input{accent-color:var(--brand-2)}
+.src{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted)}
+.mapzone{flex:999 1 560px;min-width:0;position:relative;min-height:600px;background:var(--map-bg);overflow:hidden;touch-action:none;cursor:grab}
+.mapzone.drag{cursor:grabbing}
+.mapzone svg.map{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tools{position:absolute;top:16px;right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px}
+.tgroup{display:flex;flex-direction:column;background:var(--surface);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.tool{width:44px;height:44px;border:0;background:var(--surface);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.tool+.tool{border-top:1px solid var(--line)}
+.tool:hover{background:var(--brand-soft)}
+.tool[aria-pressed="true"]{background:var(--brand-soft);color:var(--brand-2)}
+.info{position:absolute;left:20px;top:20px;width:300px;max-width:calc(100% - 96px);background:var(--surface);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;cursor:auto}
+.info h2{margin:2px 0 0;font-size:19px;font-weight:600}
+.info .k{margin:0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--water)}
+.info dl{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px}
+.info dt{color:var(--muted)} .info dd{margin:0}
+.info .x{position:absolute;right:6px;top:6px}
+.banner{position:absolute;left:50%;transform:translateX(-50%);top:16px;max-width:calc(100% - 140px);padding:10px 14px;background:var(--surface);border-radius:10px;box-shadow:var(--shadow);font-size:14px;color:var(--muted);cursor:auto}
+.foot-map{position:absolute;left:20px;bottom:18px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:7px 12px;background:var(--surface);opacity:.94;border-radius:8px;font-size:13px;color:var(--muted)}
+.scale{display:inline-block;width:80px;height:6px;border:1.5px solid var(--fg);border-top:0}
+.toast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px}
+/* ---- Identité CEGIT ---- */
+.top{background:var(--head-bg);color:var(--head-fg);border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.02)}
+.top .wrap{padding-block:14px}
+.brand{color:var(--head-fg)}
+.brand-mark{border-radius:4px;width:40px;height:40px}
+.brand-name{font-family:var(--f-display);font-weight:700;letter-spacing:0}
+.brand-name b{color:var(--accent);font-weight:700}
+.brand-sub{color:var(--muted)}
+.top-nav{align-items:center;gap:4px 6px}
+.nav-i{position:relative;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:0;background:none;color:var(--head-fg);font-family:var(--f-display);font-size:15px;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;text-decoration:none}
+.nav-i:hover{color:var(--brand-2)}
+.nav-i.active{font-weight:700}
+.nav-i.active::after{content:"";position:absolute;left:50%;bottom:0;width:10px;height:12px;margin-left:-5px;background:var(--accent)}
+.btn-light{background:var(--accent-strong);color:#FFFFFF;border-radius:2px;font-family:var(--f-display);font-weight:700;margin-left:8px}
+.btn-light:hover{background:#B85F00}
+.hero{position:relative;background-color:#2B2B2A;color:#FFFFFF;border-bottom:0;
+  background-image:linear-gradient(rgba(25,25,24,.55),rgba(25,25,24,.55)),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cg fill='none' stroke='%23F39200' stroke-opacity='.35' stroke-width='1.2'%3E%3Cpath d='M-20 60C80 20 160 90 260 60S440 10 620 50'/%3E%3Cpath d='M-20 100C90 60 170 130 270 100S450 50 620 90'/%3E%3Cpath d='M-20 140C100 100 180 170 280 140S460 90 620 130'/%3E%3Cpath d='M-20 180C110 140 190 210 290 180S470 130 620 170'/%3E%3Cpath d='M-20 220C120 180 200 250 300 220S480 170 620 210'/%3E%3Cpath d='M-20 260C130 220 210 290 310 260S490 210 620 250'/%3E%3Ccircle cx='430' cy='120' r='30'/%3E%3Ccircle cx='430' cy='120' r='55'/%3E%3Ccircle cx='130' cy='210' r='22'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:auto,600px 300px}
+.hero{background-image:none;overflow:hidden}
+.hero canvas.sat{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero .wrap{position:relative;z-index:1}
+.sat-credit{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:10px;z-index:1;font-size:12px;color:#D6D6D2;opacity:.85}
+.hero .wrap{padding-block:72px 60px}
+.hero h1,.hero p.lead{text-shadow:0 1px 12px rgba(0,0,0,.45)}
+.hero h1{color:#FFFFFF;font-weight:700;font-size:clamp(28px,4.2vw,46px);letter-spacing:-.01em;max-width:26ch}
+.hero p.lead{color:#ECECE8;font-size:17px}
+.big-search input{background:#FFFFFF;color:#2B2B2A;border:0;border-radius:2px}
+.big-search .field svg{color:#5A5A57}
+.big-search .go{background:var(--accent-strong);color:#FFFFFF;border-radius:2px;font-family:var(--f-display);font-weight:700;font-size:17px;padding:0 28px}
+.big-search .go:hover{background:#B85F00}
+.big-search input:focus{box-shadow:0 0 0 3px var(--accent)}
+.hero .note{background:rgba(255,255,255,.12);color:#FFFFFF}
+.themes,.tile,.empty,.info,.banner,.tgroup{border-radius:4px}
+.th,.tab,.tabs,.chip,.lyr,.fonds label,.copy,.btn-ghost{border-radius:2px}
+.th[aria-pressed="true"]{background:var(--brand)}
+.th[aria-pressed="true"] .n{background:var(--accent-strong)}
+.tab[aria-selected="true"]{box-shadow:inset 0 -3px 0 var(--accent)}
+.tile .ic{border-radius:4px;background:var(--brand-soft);color:var(--brand-2);width:72px;height:72px}
+.ico48{stroke-width:2}
+.ico .fill{fill:currentColor;stroke:none}
+.tile:hover .ic{background:var(--accent);color:#2B2B2A}
+.tile:hover{border-color:var(--accent)}
+.tile .t{font-weight:500}
+.f-col h2{color:var(--accent)}
+footer .brand-name{font-size:22px}
+.pt{cursor:pointer}
+.pt:hover circle:first-child{stroke-width:5}
+/* ---- Catalogue de données (inspiré de GeoNetwork) ---- */
+:root{--ok:#2E7D46}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ok:#6CC48A}}
+:root[data-theme="dark"]{--ok:#6CC48A}
+.hero-link{border:0;background:none;color:#FFFFFF;text-decoration:underline;text-underline-offset:4px;cursor:pointer;font-size:16px;min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:0}
+.hero-link:hover{color:var(--accent)}
+.cat-head{background:#2B2B2A;color:#FFFFFF;border-bottom:4px solid var(--accent)}
+.cat-head .wrap{padding-block:30px 28px;display:flex;flex-direction:column;gap:14px}
+.cat-head .crumbs{color:#D6D6D2}
+.cat-head .crumbs button{color:#FFFFFF}
+.cat-head h1{margin:0;font-size:clamp(26px,3.4vw,36px);font-weight:700}
+.cat-head p{margin:0;color:#E2E2DE;max-width:72ch}
+.cat-search{display:flex;gap:8px;flex-wrap:wrap;max-width:860px}
+.cat-search .field{position:relative;flex:1 1 300px}
+.cat-search .field svg{position:absolute;left:14px;top:14px;color:#5A5A57}
+.cat-search input{width:100%;height:50px;border:0;border-radius:2px;padding:0 14px 0 46px;background:#FFFFFF;color:#2B2B2A;font-size:16px}
+.cat-search input:focus{outline:none;box-shadow:0 0 0 3px var(--accent)}
+.cat-search .go{height:50px;padding:0 24px;border:0;border-radius:2px;background:var(--accent-strong);color:#FFFFFF;font-family:var(--f-display);font-weight:700;font-size:16px;cursor:pointer}
+.cat-search .go:hover{background:#B85F00}
+.cat-stats{display:flex;flex-wrap:wrap;gap:8px 28px;margin:2px 0 0;padding:0;list-style:none;font-size:15px;color:#D6D6D2}
+.cat-stats strong{color:#FFFFFF;font-family:var(--f-display);font-size:20px;margin-right:6px;font-variant-numeric:tabular-nums}
+.demo-flag{align-self:flex-start;padding:4px 10px;border:1px solid rgba(255,255,255,.4);border-radius:2px;font-size:13px;color:#FFFFFF}
+.cat-body{display:flex;flex-wrap:wrap;gap:24px 28px;align-items:flex-start;padding-block:28px 56px}
+.facets{flex:1 1 260px;max-width:100%;display:flex;flex-direction:column;gap:10px}
+.facet{background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.facet summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:46px;padding:0 14px;font-family:var(--f-display);font-weight:500;font-size:15px}
+.facet summary::-webkit-details-marker{display:none}
+.facet summary::after{content:"";flex:none;width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-2px)}
+.facet[open] summary::after{transform:rotate(-135deg)}
+.facet ul{list-style:none;margin:0;padding:0 8px 10px;display:flex;flex-direction:column}
+.fopt{display:flex;align-items:center;gap:10px;min-height:38px;padding:2px 6px;border-radius:2px;cursor:pointer;font-size:15px}
+.fopt:hover{background:var(--brand-soft)}
+.fopt input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--accent-strong)}
+.fopt .l{flex:1;min-width:0}
+.fopt .c{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fopt.zero{opacity:.5}
+.facet-toggle{display:none}
+.results{flex:999 1 560px;min-width:0}
+.rbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.rbar .count{margin:0}
+.rtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rtools label{font-size:14px;color:var(--muted)}
+.rtools select{min-height:40px;border:1px solid var(--line);border-radius:2px;background:var(--surface);padding:0 10px}
+.vt{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.vt button{width:40px;height:40px;border:0;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.vt button[aria-pressed="true"]{background:var(--brand);color:#FFFFFF}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chips:empty{display:none}
+.fchip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 8px 0 12px;border-radius:2px;background:var(--accent-soft);color:var(--accent-ink);border:0;cursor:pointer;font-size:14px}
+.lnk-btn{border:0;background:none;color:var(--brand-2);text-decoration:underline;cursor:pointer;font-size:14px;min-height:34px;padding:0 4px}
+.rlist{display:flex;flex-direction:column;gap:12px}
+.rlist.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.rec{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:18px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:4px;transition:border-color .15s}
+.rec:hover{border-color:var(--accent)}
+.rlist.grid .rec{grid-template-columns:minmax(0,1fr);gap:12px;align-content:start}
+.thumb{width:112px;height:84px;border-radius:2px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-2);overflow:hidden;flex:none}
+.thumb.big{width:100%;height:150px}
+.rlist.grid .thumb{width:100%;height:120px}
+.thumb.r-ortho{background:radial-gradient(circle at 28% 38%,#55663A 0 14%,transparent 15%),radial-gradient(circle at 72% 62%,#66733F 0 18%,transparent 19%),radial-gradient(circle at 55% 25%,#D9D2C3 0 6%,transparent 7%),radial-gradient(circle at 40% 72%,#C4794A 0 5%,transparent 6%),repeating-linear-gradient(18deg,#B79F78 0 7px,#A68E68 7px 14px)}
+.thumb.r-mnt{background:linear-gradient(135deg,#2F5E3B 0%,#7FA25C 25%,#E3D5A2 50%,#B68756 75%,#F1EEE6 100%)}
+.rec-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-size:12px;font-weight:600;background:var(--soft);color:var(--muted)}
+.bdg.type{background:#3C3C3B;color:#FFFFFF}
+.bdg.lock{background:var(--accent-soft);color:var(--accent-ink)}
+.bdg.open{background:transparent;color:var(--ok);box-shadow:inset 0 0 0 1px currentColor}
+.rec h3{margin:0;font-size:18px;font-weight:500;line-height:1.3}
+.lnk{border:0;background:none;padding:0;text-align:left;font:inherit;color:var(--fg);cursor:pointer}
+.lnk:hover{color:var(--brand-2);text-decoration:underline}
+.rec .meta{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.rec .ab{margin:8px 0 0;font-size:15px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fmts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.fmt{padding:1px 7px;border:1px solid var(--line);border-radius:2px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
+.ract{display:flex;flex-direction:column;gap:6px}
+.rlist.grid .ract{flex-direction:row}
+.ibtn{width:40px;height:40px;border:1px solid var(--line);border-radius:2px;background:var(--surface);color:var(--fg);display:grid;place-items:center;cursor:pointer;flex:none}
+.ibtn:hover{border-color:var(--accent);color:var(--brand-2)}
+.pager{display:flex;gap:6px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+.pager:empty{display:none}
+.pager button{min-width:40px;height:40px;padding:0 10px;border:1px solid var(--line);border-radius:2px;background:var(--surface);cursor:pointer;font-variant-numeric:tabular-nums}
+.pager button[aria-current="page"]{background:var(--brand);color:#FFFFFF;border-color:var(--brand)}
+.pager button[disabled]{opacity:.4;cursor:default}
+.btn-p{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:0;border-radius:2px;background:var(--accent-strong);color:#FFFFFF;font-family:var(--f-display);font-weight:700;font-size:15px;cursor:pointer}
+.btn-p:hover{background:#B85F00}
+.btn-s{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:2px;background:var(--surface);color:var(--fg);font-family:var(--f-display);font-size:15px;cursor:pointer}
+.btn-s:hover{border-color:var(--accent)}
+.btn-s[disabled],.btn-p[disabled]{opacity:.45;cursor:not-allowed}
+@media (max-width:820px){.facet-toggle{display:inline-flex}.facets.collapsed{display:none}.facets{flex-basis:100%}}
+@media (max-width:640px){.rec{grid-template-columns:72px minmax(0,1fr)}.rec .thumb{width:72px;height:72px}.rec .thumb svg{width:36px;height:36px}.ract{grid-column:1/-1;flex-direction:row}}
+/* Fiche détaillée */
+.det{padding-block:24px 56px}
+.det .crumbs{margin-bottom:14px}
+.det-head{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.det-head h1{margin:8px 0 0;font-size:clamp(24px,3vw,32px);font-weight:700;max-width:32ch}
+.det-head .meta{margin:8px 0 0;color:var(--muted);font-size:15px}
+.det-actions{display:flex;flex-wrap:wrap;gap:8px}
+.det-grid{display:flex;flex-wrap:wrap;gap:28px;margin-top:4px;align-items:flex-start}
+.det-main{flex:999 1 560px;min-width:0}
+.det-side{flex:1 1 280px;max-width:100%;display:flex;flex-direction:column;gap:16px;margin-top:20px}
+.dtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.dtab{min-height:48px;padding:0 16px;border:0;background:none;color:var(--muted);font-family:var(--f-display);font-size:15px;cursor:pointer;white-space:nowrap;box-shadow:inset 0 -3px 0 transparent}
+.dtab:hover{color:var(--fg)}
+.dtab[aria-selected="true"]{color:var(--fg);font-weight:700;box-shadow:inset 0 -3px 0 var(--accent)}
+.dpanel{padding-top:20px}
+.dpanel h2{font-size:17px;font-weight:700;margin:28px 0 10px}
+.dpanel h2:first-child{margin-top:0}
+.dpanel p{margin:0 0 12px;max-width:72ch;line-height:1.6}
+.kv{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);margin:0;border-top:1px solid var(--line)}
+.kv dt,.kv dd{margin:0;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px;min-width:0;overflow-wrap:anywhere}
+.kv dt{color:var(--muted);padding-right:16px}
+@media (max-width:560px){.kv{grid-template-columns:minmax(0,1fr)}.kv dt{border-bottom:0;padding-bottom:0}}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:2px}
+table.attr{width:100%;border-collapse:collapse;font-size:14px}
+table.attr th,table.attr td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+table.attr tr:last-child td{border-bottom:0}
+table.attr th{background:var(--soft);font-family:var(--f-display);font-weight:500}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.svc{display:flex;flex-direction:column;gap:10px}
+.svc-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:2px;background:var(--surface)}
+.svc-row .bdg{min-width:52px;justify-content:center}
+.svc-row .mono{flex:1 1 260px;min-width:0;overflow-wrap:anywhere;color:var(--muted)}
+.dl-grid{display:flex;flex-wrap:wrap;gap:8px}
+.hint{font-size:14px;color:var(--muted);margin:10px 0 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:16px}
+.card h2{margin:0 0 12px;font-size:15px;font-weight:700}
+.card p{margin:0 0 6px;font-size:15px}
+.kwl{display:flex;flex-wrap:wrap;gap:6px}
+.kwl button{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:2px;padding:4px 10px;font-size:14px;cursor:pointer;min-height:32px}
+.kwl button:hover{border-color:var(--accent)}
+.qual{display:flex;align-items:center;gap:10px}
+.qual .bar{flex:1;height:8px;background:var(--soft);border-radius:2px;overflow:hidden}
+.qual .bar span{display:block;height:100%;background:var(--ok)}
+.emprise svg{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:2px;background:var(--bg)}
+.bbox{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;margin-top:10px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.related{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.related .lnk{font-size:15px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:60;padding:16px}
+.modal-box{background:var(--surface);color:var(--fg);border-radius:4px;max-width:860px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.modal-head h2{margin:0;font-size:17px}
+.modal pre{margin:0;padding:16px;overflow:auto;font-size:12.5px;line-height:1.5;background:var(--bg);flex:1;min-height:0}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){.tile{transition:none}.tile:hover{transform:none}}
+@media (max-width:640px){.panel{border-right:0;border-bottom:1px solid var(--line)}.mapzone{min-height:480px}.banner{max-width:calc(100% - 90px);left:20px;transform:none}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#accueil" id="home-link">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" width="25" height="25" class="ico" aria-hidden="true"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg></span>
+      <span><span class="brand-name">carto-<b>cegit</b>-map</span><span class="brand-sub" id="coll-name">Ville de Thiès</span></span>
+    </a>
+    <nav class="top-nav" aria-label="Navigation principale" style="margin-left:auto">
+      <button class="nav-i active" type="button" id="nav-home" aria-current="page">Accueil</button>
+      <button class="nav-i" type="button" id="nav-data">Données</button>
+      <button class="nav-i" type="button" id="btn-aide">Aide</button>
+      <button class="nav-i" type="button" id="nav-contact">Contact</button>
+      <button class="btn-light" type="button" id="btn-agents"><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z"/></svg><span id="btn-agents-l">Espace agents</span></button>
+    </nav>
+  </div>
+</header>
+
+<!-- ACCUEIL -->
+<main id="view-home">
+  <section class="hero">
+    <canvas class="sat" id="sat" aria-hidden="true"></canvas>
+    <span class="sat-credit">Vue aérienne illustrative</span>
+    <div class="wrap">
+      <h1 id="hero-title">Bienvenue sur le portail cartographique de la Ville de Thiès</h1>
+      <p class="lead">Cet espace collaboratif rassemble les données géographiques produites par <span id="hero-coll">la Ville de Thiès</span> et ses partenaires. Il vous permet de consulter, en quelques clics, les cartes liées aux compétences de la collectivité : urbanisme et foncier, voirie et mobilité, équipements publics, environnement, santé, éducation et culture. Habitants, porteurs de projets, associations et investisseurs y trouvent une information fiable et à jour pour s’orienter, préparer une démarche ou comprendre l’action publique locale. Les agents et les élus disposent d’un espace réservé pour partager les données métier et suivre les projets du territoire. Chaque carte peut être consultée, partagée, et ses données téléchargées. Vous constatez une erreur ou souhaitez proposer une donnée ? Signalez-la : ce portail s’enrichit de vos contributions.</p>
+      <form class="big-search" id="search-form" role="search">
+        <div class="field">
+          <label for="q" class="sr">Rechercher une carte</label>
+          <svg viewBox="0 0 24 24" width="22" height="22" class="ico" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg>
+          <input id="q" type="search" placeholder="Ex. : marché, lotissement, point d’eau, école…" autocomplete="off">
+        </div>
+        <button class="go" type="submit">Rechercher</button>
+      </form>
+      <button type="button" class="hero-link" id="hero-cat">Parcourir le catalogue de données<svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <p class="note" id="dept-note" hidden>Vue agrégée : les cartes regroupent les données des communes du département.</p>
+    </div>
+  </section>
+  <div class="wrap home">
+    <aside class="themes" aria-label="Thèmes">
+      <h2>Thèmes</h2>
+      <ul id="themes"></ul>
+    </aside>
+    <section class="content" aria-label="Cartes">
+      <div class="bar">
+        <div class="tabs" role="tablist" aria-label="Profil">
+          <button class="tab" role="tab" id="tab-gp" aria-selected="true">Grand public</button>
+          <button class="tab" role="tab" id="tab-m" aria-selected="false"><svg viewBox="0 0 24 24" width="16" height="16" class="ico" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z"/></svg>Agents et élus</button>
+        </div>
+        <p class="count" id="count" aria-live="polite"></p>
+      </div>
+      <div class="empty" id="empty" hidden>Aucune carte ne correspond à cette recherche. Essayez un autre mot ou choisissez « Tous les thèmes ».</div>
+      <div class="grid" id="grid"></div>
+    </section>
+  </div>
+</main>
+
+<!-- CATALOGUE DE DONNÉES -->
+<main id="view-data" hidden>
+  <section class="cat-head" id="cat-head">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Fil d’Ariane"><button type="button" data-go="home">Accueil</button><span aria-hidden="true">›</span><span>Catalogue de données</span></nav>
+      <h1>Catalogue de données</h1>
+      <p>Recherchez, consultez et téléchargez les données géographiques de <span id="cat-coll">la ville de Thiès</span>. Chaque jeu de données est décrit par une fiche de métadonnées conforme à la norme ISO 19115.</p>
+      <form class="cat-search" id="cat-form" role="search">
+        <div class="field">
+          <label for="cq" class="sr">Rechercher dans le catalogue</label>
+          <svg viewBox="0 0 24 24" width="22" height="22" class="ico" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg>
+          <input id="cq" type="search" placeholder="Titre, mot-clé, organisme… (ex. : voirie, forage, POS)" autocomplete="off">
+        </div>
+        <button class="go" type="submit">Rechercher</button>
+      </form>
+      <ul class="cat-stats" id="cat-stats"></ul>
+      <span class="demo-flag">Catalogue de démonstration : fiches et données fictives</span>
+    </div>
+  </section>
+  <div class="wrap cat-body" id="cat-list">
+    <button type="button" class="facet-toggle btn-s" id="facet-toggle" aria-expanded="false" aria-controls="facets">Filtres</button>
+    <aside class="facets collapsed" id="facets" aria-label="Filtres"></aside>
+    <section class="results" aria-label="Résultats">
+      <div class="rbar">
+        <p class="count" id="cat-count" aria-live="polite"></p>
+        <div class="rtools">
+          <label for="cat-sort">Trier par</label>
+          <select id="cat-sort">
+            <option value="rel">Pertinence</option>
+            <option value="date">Plus récentes</option>
+            <option value="title">Titre (A → Z)</option>
+            <option value="pop">Plus consultées</option>
+          </select>
+          <div class="vt" role="group" aria-label="Affichage">
+            <button type="button" id="vt-list" aria-pressed="true" aria-label="Affichage en liste"><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+            <button type="button" id="vt-grid" aria-pressed="false" aria-label="Affichage en grille"><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div class="chips" id="cat-chips"></div>
+      <div class="empty" id="cat-empty" hidden>Aucune fiche ne correspond à votre recherche. Retirez un filtre ou essayez un autre mot-clé.</div>
+      <div class="rlist" id="cat-results"></div>
+      <nav class="pager" id="cat-pager" aria-label="Pagination"></nav>
+    </section>
+  </div>
+  <div class="wrap det" id="cat-detail" hidden></div>
+  <div class="modal" id="xml-modal" role="dialog" aria-modal="true" aria-labelledby="xml-title" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="xml-title">Fiche ISO 19139 (XML)</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn-s" type="button" id="xml-copy">Copier le XML</button>
+          <button class="ibtn" type="button" id="xml-close" aria-label="Fermer"><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+      </div>
+      <pre id="xml-pre" tabindex="0"></pre>
+    </div>
+  </div>
+</main>
+
+<!-- VISIONNEUSE -->
+<main id="view-map" hidden>
+  <div class="viewer">
+    <aside class="panel" aria-label="Couches et légende">
+      <div>
+        <nav class="crumbs" aria-label="Fil d’Ariane"><button type="button" id="back">Accueil</button><span aria-hidden="true">›</span><span id="crumb-theme"></span></nav>
+        <h1 id="map-title"></h1>
+        <p class="desc" id="map-desc"></p>
+      </div>
+      <fieldset>
+        <legend>Couches</legend>
+        <div id="layers"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Fond de plan</legend>
+        <div class="fonds">
+          <label><input type="radio" name="fond" id="fond-plan" value="plan" checked>Plan</label>
+          <label><input type="radio" name="fond" id="fond-img" value="img">Imagerie</label>
+        </div>
+      </fieldset>
+      <div class="src">
+        <span id="map-src">Source : délibérations du conseil municipal</span>
+        <span>Mise à jour : [date de la donnée]</span>
+        <button type="button" class="btn-ghost" style="color:var(--brand-2);padding:0;min-height:36px;justify-content:flex-start" id="dl">Télécharger les données (GeoJSON, CSV)</button>
+      </div>
+    </aside>
+
+    <section class="mapzone" id="mapzone" aria-label="Carte">
+      <svg class="map" id="map" viewBox="0 0 1000 680" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Carte illustrative de la commune">
+        <rect x="-2000" y="-2000" width="5000" height="5000" style="fill:var(--map-bg)" id="ground"/>
+        <g id="L-imagerie" hidden>
+          <rect x="-2000" y="-2000" width="5000" height="5000" fill="#6E6A4E"/>
+          <g opacity=".45"><circle cx="200" cy="180" r="120" fill="#4F5A36"/><circle cx="720" cy="470" r="150" fill="#59633C"/><circle cx="700" cy="150" r="90" fill="#4A5532"/><circle cx="260" cy="520" r="110" fill="#8B7B57"/></g>
+        </g>
+        <g id="L-culture">
+          <path d="M150 140 L330 110 L380 230 L240 290 L140 250 Z" style="fill:var(--map-crop);stroke:var(--map-crop-line)" stroke-width="1.5"/>
+          <path d="M560 380 L760 360 L800 480 L640 540 L540 480 Z" style="fill:var(--map-crop);stroke:var(--map-crop-line)" stroke-width="1.5"/>
+          <path d="M620 120 L770 100 L800 200 L660 230 Z" style="fill:var(--map-crop);stroke:var(--map-crop-line)" stroke-width="1.5"/>
+          <path d="M170 470 L320 450 L350 560 L200 590 Z" style="fill:var(--map-crop);stroke:var(--map-crop-line)" stroke-width="1.5"/>
+        </g>
+        <g id="L-routes" fill="none" stroke-linecap="round">
+          <path d="M-200 330 C200 320 380 360 520 330 S820 280 1200 300" style="stroke:var(--map-road)" stroke-width="10"/>
+          <path d="M480 -200 C470 160 520 260 520 330 S500 560 470 900" style="stroke:var(--map-road)" stroke-width="7"/>
+          <path d="M-200 330 C200 320 380 360 520 330 S820 280 1200 300" style="stroke:var(--map-road-line)" stroke-width="2"/>
+          <path d="M480 -200 C470 160 520 260 520 330 S500 560 470 900" style="stroke:var(--map-road-line)" stroke-width="1.5"/>
+        </g>
+        <g id="L-couloir"><path d="M-120 640 C180 560 300 480 420 430 S700 380 1100 140" fill="none" style="stroke:var(--map-corridor)" stroke-width="46" stroke-linecap="round" opacity=".6"/></g>
+        <g id="L-betail" fill="none" style="stroke:var(--accent)" stroke-width="4" stroke-dasharray="12 8" stroke-linecap="round">
+          <path d="M260 200 C300 280 360 330 430 420"/><path d="M700 160 C640 230 600 300 560 330 C520 360 470 400 430 420"/>
+          <path d="M430 420 C410 480 400 540 360 600"/><path d="M720 450 C640 440 560 430 430 420"/>
+        </g>
+        <g id="L-eau"></g>
+        <g id="L-villages" font-family="Open Sans, sans-serif" font-size="17" font-weight="600" style="fill:var(--map-ink)" paint-order="stroke">
+          <rect x="532" y="292" width="16" height="16"/><text x="556" y="290" style="stroke:var(--map-halo)" stroke-width="4">Chef-lieu</text>
+          <rect x="192" y="372" width="12" height="12"/><text x="210" y="372" style="stroke:var(--map-halo)" stroke-width="4">Village A</text>
+          <rect x="780" y="252" width="12" height="12"/><text x="798" y="252" style="stroke:var(--map-halo)" stroke-width="4">Village B</text>
+          <rect x="602" y="602" width="12" height="12"/><text x="620" y="602" style="stroke:var(--map-halo)" stroke-width="4">Village C</text>
+        </g>
+        <g id="L-limites" fill="none" style="stroke:var(--map-limit)" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round">
+          <path d="M60 60 L520 30 L940 90 L970 420 L880 640 L420 660 L80 610 L30 330 Z"/>
+        </g>
+        <g id="L-measure"></g>
+      </svg>
+
+      <p class="banner" id="banner" hidden>Aperçu : les couches propres à cette carte seront chargées depuis la base de la collectivité.</p>
+
+      <div class="tools" role="toolbar" aria-label="Outils de la carte">
+        <div class="tgroup">
+          <button class="tool" type="button" id="zin" aria-label="Zoom avant"><svg viewBox="0 0 24 24" width="20" height="20" class="ico" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="tool" type="button" id="zout" aria-label="Zoom arrière"><svg viewBox="0 0 24 24" width="20" height="20" class="ico" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+          <button class="tool" type="button" id="zreset" aria-label="Vue d’ensemble"><svg viewBox="0 0 24 24" width="20" height="20" class="ico" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+        <div class="tgroup">
+          <button class="tool" type="button" id="measure" aria-pressed="false" aria-label="Mesurer une distance"><svg viewBox="0 0 24 24" width="20" height="20" class="ico" aria-hidden="true"><path d="M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
+          <button class="tool" type="button" id="share" aria-label="Copier le lien de la carte"><svg viewBox="0 0 24 24" width="20" height="20" class="ico" aria-hidden="true"><path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+        </div>
+      </div>
+
+      <div class="info" id="info" role="dialog" aria-labelledby="info-title" hidden>
+        <button class="tool x" type="button" id="info-close" aria-label="Fermer la fiche" style="background:transparent"><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <p class="k">Point d’eau</p>
+        <h2 id="info-title"></h2>
+        <dl id="info-dl"></dl>
+      </div>
+
+      <div class="foot-map"><span style="display:inline-flex;align-items:center;gap:8px"><span class="scale" id="scale"></span><span id="scale-l">1 km</span></span><span id="measure-l" hidden></span><span>Carte illustrative · fond © contributeurs OpenStreetMap</span></div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </section>
+  </div>
+</main>
+
+<footer id="footer">
+  <div class="wrap f-main">
+    <div class="f-col f-brand">
+      <span class="brand-name" style="color:#FFFFFF">carto-<b>cegit</b>-map</span>
+      <p><span id="foot-coll">Ville de Thiès</span> publie ici les cartes liées à ses compétences, en accès libre pour le public et en accès réservé pour ses agents et élus.</p>
+    </div>
+    <nav class="f-col" aria-label="Liens utiles">
+      <h2>Liens utiles</h2>
+      <ul>
+        <li><a href="#accueil" data-act="home">Toutes les cartes</a></li>
+        <li><a href="#guide" data-act="guide">Guide d’utilisation</a></li>
+        <li><a href="#donnees" data-act="data">Données ouvertes</a></li>
+        <li><a href="#agents" data-act="agents">Espace agents et élus</a></li>
+        <li><a href="#signaler" data-act="report">Signaler une erreur sur une carte</a></li>
+      </ul>
+    </nav>
+    <nav class="f-col" aria-label="Ressources">
+      <h2>Ressources</h2>
+      <ul>
+        <li><a href="#site" data-act="site">Site de la collectivité</a></li>
+        <li><a href="#cgct" data-act="cgct">Code général des collectivités territoriales</a></li>
+        <li><a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a></li>
+        <li><a href="https://cegitgroup.com/fr" target="_blank" rel="noopener">CEGIT, concepteur du portail</a></li>
+      </ul>
+    </nav>
+    <div class="f-col f-contact">
+      <h2>Contact</h2>
+      <ul>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg><span>Hôtel de ville<br>[Adresse de la mairie]</span></li>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>[+221 00 000 00 00]</span></li>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg><span><span id="mail">sig@[collectivite].sn</span><button class="copy" type="button" data-copy="mail">Copier</button></span></li>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" class="ico" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2"/></svg><span>Lundi au vendredi, 8 h – 17 h</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="f-bottom">
+    <div class="wrap">
+      <span>© 2026 <span id="foot-coll2">Ville de Thiès</span> · <a href="#mentions" data-act="legal">Mentions légales</a> · <a href="#accessibilite" data-act="a11y">Accessibilité</a></span>
+      <div class="demo">
+        <label for="niveau">Démo – type de collectivité</label>
+        <select id="niveau">
+          <option value="C">Commune</option>
+          <option value="V" selected>Ville</option>
+          <option value="D">Département</option>
+        </select>
+      </div>
+      <span>Réalisé par <a href="https://cegitgroup.com/fr" target="_blank" rel="noopener">CEGIT</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+const ICONS={
+ user:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+ people:'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M15 15.3c.3-.1.7-.3 1-.3 3 0 6 2 6 5',
+ limits:'M4 7l6-4 9 4 1 9-7 5-8-4zM10 3l3 18M4 17l15-10',
+ link:'M10 14l4-4M8 12l-3 3a3 3 0 0 0 4 4l3-3M16 12l3-3a3 3 0 0 0-4-4l-3 3',
+ doc:'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7',
+ grid:'M3 3h18v18H3zM3 9h18M9 3v18M15 9v12',
+ house:'M3 11l9-7 9 7M5 10v10h14V10M10 20v-5h4v5',
+ crane:'M4 21V5h12M4 9l4-4M16 5v6M14 11h4v3h-4zM2 21h8',
+ road:'M9 3L5 21M15 3l4 18M12 5v3M12 11v3M12 17v3',
+ trail:'M5 21c0-4 3-5 6-6s6-3 6-7M17 4v.01M7 11c0-2 1-3 3-4M4 15v.01',
+ sign:'M12 3v18M5 5h12l2 2.5-2 2.5H5zM19 12H7l-2 2.5L7 17h12z',
+ lamp:'M12 21V9M7 5h10l-2 4H9zM9 21h6',
+ bus:'M5 17V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v11zM5 12h14M7 20v-3M17 20v-3',
+ fence:'M5 21V6l2-3 2 3v15M15 21V6l2-3 2 3v15M3 10h18M3 16h18',
+ drop:'M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z',
+ leaf:'M5 19c0-9 6-14 15-14 0 9-5 15-14 15zM5 19l8-8',
+ pin:'M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+ tree:'M12 21v-6M7 15h10a4 4 0 0 0 0-8 5 5 0 0 0-10 0 4 4 0 0 0 0 8z',
+ flame:'M12 3c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5',
+ trash:'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6',
+ building:'M3 21h18M5 21V10M19 21V10M9 21V10M15 21V10M3 10l9-6 9 6z',
+ market:'M3 9l2-5h14l2 5zM3 9v2a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V9M5 13v8h14v-8',
+ graves:'M5 21v-9a3 3 0 0 1 6 0v9M3 21h18M15 21v-6a2 2 0 0 1 4 0v6',
+ mosque:'M4 21h16M6 21v-7h12v7M6 14a6 6 0 0 1 12 0M12 5v3M20 21V9',
+ cross:'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z',
+ shield:'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z',
+ clock:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+ school:'M2 8l10-4 10 4-10 4zM6 10v5c0 2 12 2 12 0v-5M22 8v6',
+ coins:'M12 4c4 0 7 1 7 3s-3 3-7 3-7-1-7-3 3-3 7-3zM5 7v5c0 2 3 3 7 3s7-1 7-3V7M5 12v5c0 2 3 3 7 3s7-1 7-3v-5',
+ monument:'M4 21h16M6 21V11h12v10M8 11V7h8v4M12 3v4M10 21v-5h4v5',
+ book:'M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zM4 21V5M9 7h7',
+ ball:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+ hydrant:'M8 21h8M9 21V9h6v12M8 9h8M10 9V5h4v4M6 13h3M15 13h3',
+ flood:'M3 16c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M3 21c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M12 3v8M9 8l3 3 3-3',
+ chart:'M4 20V10M10 20V4M16 20v-7M2 20h20',
+ layers:'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5'
+};
+const THEMES=[
+ {id:'all',l:'Tous les thèmes'},{id:'territoire',l:'Territoire et gouvernance'},{id:'foncier',l:'Foncier et urbanisme'},
+ {id:'mobilite',l:'Voirie et mobilité'},{id:'agri',l:'Agriculture et élevage'},{id:'env',l:'Environnement'},
+ {id:'equip',l:'Équipements et services'},{id:'sante',l:'Santé et solidarité'},{id:'educ',l:'Éducation, culture, sport'},
+ {id:'risques',l:'Risques et sécurité'},{id:'dev',l:'Développement et finances'}];
+// t titre, th thème, p public (GP, M, GPM), n niveaux, i icône, a article, d description
+const MAPS=[
+ ['Élus et territoire','territoire','GP','CVD','user','Art. 92','Limites de la collectivité, chef-lieu, maire, adjoints et conseillers.'],
+ ['Quartiers et villages','territoire','GP','C','people','Art. 83','Découpage en quartiers et villages, conseils consultatifs.'],
+ ['Évolution des limites','territoire','M','CD','limits','Art. 75 à 79','Historique des fusions, rattachements et transferts de chef-lieu.'],
+ ['Coopération décentralisée','territoire','GP','VD','link','Art. 29','Jumelages et projets menés avec des partenaires étrangers.'],
+ ['Documents d’urbanisme (PDU, SDAU)','foncier','GP','V','doc','Art. 170','Plan directeur d’urbanisme, schéma directeur et plans de détail.'],
+ ['Plan d’occupation des sols','foncier','GP','CV','grid','Art. 81-2','Affectation des zones et règles d’occupation.'],
+ ['Lotissements','foncier','GPM','CV','house','Art. 81-2','Plans de lotissement approuvés et état des équipements.'],
+ ['Délibérations foncières','foncier','M','C','doc','Art. 81-3','Affectations et désaffectations de terres du domaine national.'],
+ ['Cadastre et patrimoine','foncier','M','CV','grid','Art. 81-9','Parcelles et biens immobiliers de la collectivité.'],
+ ['Autorisations d’occuper','foncier','M','C','house','Art. 81-2','Permis de construire, habitations et campements autorisés.'],
+ ['Rénovation urbaine et ZAC','foncier','GP','V','crane','Art. 170','Zones d’aménagement concerté, rénovation et remembrement.'],
+ ['Routes et voiries','mobilite','GP','CV','road','Art. 81-10','Classement des voies, revêtement et état.'],
+ ['Pistes et chemins ruraux','mobilite','GPM','C','trail','Art. 81-10','Pistes et chemins non classés, programmation de l’entretien.'],
+ ['Adressage des rues','mobilite','GP','CV','sign','Art. 81-10','Noms et numérotation des rues et places.'],
+ ['Éclairage public','mobilite','GPM','V','lamp','Art. 169-10','Points lumineux et extensions prévues du réseau.'],
+ ['Circulation et gares routières','mobilite','GP','V','bus','Art. 180','Sens de circulation, gares routières et stationnement.'],
+ ['Parcours du bétail','agri','GP','C','trail','Art. 81-17','Chemins de bétail délimités par la commune, couloirs de transhumance et points d’abreuvement.'],
+ ['Vaine pâture et servitudes','agri','GP','C','fence','Art. 81-15','Zones et périodes de vaine pâture, servitudes de passage.'],
+ ['Points d’eau','agri','GP','C','drop','Art. 81-16','Forages, puits et mares avec leur régime d’accès.'],
+ ['Clôtures et zones de culture','agri','M','C','fence','Art. 81-14','Zones de culture protégées et clôtures autorisées.'],
+ ['Cueillette et coupes de bois','agri','GPM','C','leaf','Art. 81-18','Zones d’exploitation et calendriers.'],
+ ['Droits d’usage','agri','M','C','pin','Art. 81-1','Périmètres où s’exercent des droits d’usage.'],
+ ['Espaces naturels et faune','env','GP','C','tree','Art. 81-12','Forêts, aires protégées et zones de braconnage signalées.'],
+ ['Feux de brousse','env','GP','C','flame','Art. 81-13','Pare-feux, zones à risque et historique des feux.'],
+ ['Gestion des déchets','env','GPM','V','trash','Art. 170','Points de collecte, circuits et dépôts sauvages.'],
+ ['Insalubrité et nuisances','env','M','V','pin','Art. 171-10','Signalements et zones de nuisance.'],
+ ['Espaces verts','env','GP','V','tree','Art. 171-10','Parcs, alignements d’arbres et projets d’embellissement.'],
+ ['Équipements municipaux','equip','GP','CV','building','Art. 81-9','Mairie, services et centres d’état civil.'],
+ ['Foires et marchés','equip','GP','C','market','Art. 81-4','Marchés quotidiens et hebdomadaires, jours de tenue.'],
+ ['Cimetières','equip','GP','CV','graves','Art. 81-11','Localisation, capacité et extensions prévues.'],
+ ['Lieux de culte','equip','GP','V','mosque','Art. 171-12','Mosquées, églises et autres lieux de culte.'],
+ ['Travaux en cours','equip','GP','CV','crane','Art. 171-4','Chantiers de construction et de réhabilitation.'],
+ ['Offre de soins','sante','GP','VD','cross','Art. 170','Hôpitaux de niveau 1, centres, postes et cases de santé.'],
+ ['Couverture maladie universelle','sante','M','V','shield','Art. 170','Mutuelles de santé et adhésion par quartier.'],
+ ['Accessibilité aux soins','sante','M','D','clock','Art. 27','Temps d’accès et zones mal desservies.'],
+ ['Établissements scolaires','educ','GP','VD','school','Art. 170','Écoles, CEM, lycées, daaras et centres d’alphabétisation.'],
+ ['Bourses et aides scolaires','educ','M','V','coins','Art. 170','Répartition des bourses par établissement.'],
+ ['Patrimoine historique','educ','GP','V','monument','Art. 170','Sites et monuments, état de conservation.'],
+ ['Équipements culturels','educ','GP','VD','book','Art. 170','Centres culturels, bibliothèques, lieux de tradition orale.'],
+ ['Équipements sportifs','educ','GP','V','ball','Art. 170','Stades, terrains et arènes.'],
+ ['Lutte contre les incendies','risques','GPM','CV','hydrant','Art. 81-13','Bouches d’incendie, casernes et zones difficiles d’accès.'],
+ ['Zones inondables','risques','GP','CV','flood','Art. 171-6','Zones inondables, ouvrages de drainage et bassins.'],
+ ['Plan de développement','dev','GP','CVD','chart','Art. 170','Actions du plan de développement et leur avancement.'],
+ ['Projets et investissements','dev','GP','CV','pin','Art. 81-7','Projets financés ou cofinancés par la collectivité.'],
+ ['Contrat-plan État–ville','dev','GP','V','doc','Art. 170','Projets inscrits au contrat-plan.'],
+ ['Fiscalité locale','dev','M','V','coins','Art. 173','Activités recensées et suivi du recouvrement.'],
+ ['Coordination départementale','dev','M','D','layers','Art. 27','Investissements des communes du département.']
+].map((r,i)=>({id:i,t:r[0],th:r[1],p:r[2],n:r[3],i:r[4],a:r[5],d:r[6]}));
+
+/* Pictogrammes des cartes : grille 48 px, trait 2, un par carte, dans l'ordre de MAPS */
+const p=d=>`<path d="${d}"/>`, c=(x,y,r)=>`<circle cx="${x}" cy="${y}" r="${r}"/>`, dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="1.2" class="fill"/>`;
+const PICTOS=[
+ /* Élus et territoire : élu avec écharpe */ c(24,13,6)+p('M10 42c1-8 7-13 14-13s13 5 14 13M17 31l16 11M27 36.5l-2.5 4'),
+ /* Quartiers et villages : cases et maison */ p('M4 42h40M6 42V30l7-7 7 7v12M10 42v-6h6v6M24 42V31h14v11M22 31l9-8 9 8M29 42v-5h4v5'),
+ /* Évolution des limites : deux parcelles et transfert */ p('M6 12l12-4 8 6-3 12-14 2zM24 26l16 2-2 14-14 0-4-8M32 8h10M38 4l4 4-4 4'),
+ /* Coopération décentralisée : globe */ c(24,24,18)+p('M6 24h36M24 6c7 5 7 31 0 36M24 6c-7 5-7 31 0 36M9 15h30M9 33h30'),
+ /* Documents d'urbanisme : plan réglementaire */ p('M8 6h22l10 10v26H8zM30 6v10h10M14 34V24l7-6 7 6v10M14 29h14M21 34v-5'),
+ /* Plan d'occupation des sols : carte zonée */ p('M6 10l12-4 12 4 12-4v32l-12 4-12-4-12 4zM18 6v32M30 10v32M6 22l12-3 12 3 12-3'),
+ /* Lotissements : îlots et maisons */ p('M6 6h36v36H6zM6 24h36M24 6v36M11 19v-5l4-4 4 4v5zM29 19v-5l4-4 4 4v5zM11 37v-5l4-4 4 4v5z'),
+ /* Délibérations foncières : acte et cachet */ p('M8 6h20l8 8v20M28 6v8h8M8 6v36h16M14 18h14M14 24h14M14 30h8')+c(34,37,6)+p('M31.5 37l2 2 3.5-4'),
+ /* Cadastre et patrimoine : parcelles numérotées */ p('M6 6h36v36H6zM6 20h14l4-14M20 20l6 10h16M26 30l-6 12M6 32h14')+dot(13,13)+dot(34,18)+dot(33,37),
+ /* Autorisations d'occuper : maison validée */ p('M4 24L20 10l16 14M8 21v21h24V21M16 42V32h8v10M30 10l4 4 9-9'),
+ /* Rénovation urbaine et ZAC : grue et bâtiment */ p('M10 42V8h22M10 14l6-6M32 8v8M29 16h6v4h-6zM4 42h40M22 42V26h16v16M26 30h2M32 30h2M26 36h2M32 36h2'),
+ /* Routes et voiries : chaussée en perspective */ p('M18 6L8 42M30 6l10 36M24 8v5M24 18v6M24 29v8'),
+ /* Pistes et chemins ruraux : piste sinueuse et arbres */ p('M12 42c0-8 12-9 12-17s-9-9-9-15M22 42c0-7 12-9 12-17s-9-9-9-15M38 18v8M9 28v8')+c(38,14,4)+c(9,24,4),
+ /* Adressage des rues : plaque de rue */ p('M6 10h36v16H6zM24 26v16M16 42h16M12 18h12M32 14v8M30 16l2-2'),
+ /* Éclairage public : lampadaire */ p('M16 42V14c0-5 3-8 8-8h6M30 6v4M25 10h10l-2 5h-6zM10 42h12M30 19v3M35 18l2 2M25 18l-2 2'),
+ /* Circulation et gares routières : car rapide */ p('M6 34V14a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v20zM6 22h36M12 10v12M24 10v12M36 10v12M6 28h4M38 28h4')+c(14,38,3)+c(34,38,3),
+ /* Parcours du bétail : tête de zébu */ p('M8 8c2 7 6 10 11 10M40 8c-2 7-6 10-11 10M18 17h12l2 10-3 12h-10l-3-12zM18 21l-6 2M30 21l6 2')+dot(21.5,34)+dot(26.5,34),
+ /* Vaine pâture et servitudes : barrière ouverte et herbe */ p('M4 42h40M8 42v-8M12 42v-12M16 42v-7M24 42V16M42 42V16M24 21h18M24 31h18M24 31l18-10'),
+ /* Points d'eau : puits et poulie */ p('M10 28h28v14H10zM10 34h28M14 28V12M34 28V12M10 12h28M24 12v7M20 19h8l-1 5h-6z'),
+ /* Clôtures et zones de culture : pousses derrière clôture */ p('M4 24h40M4 36h40M8 20v24M18 20v24M28 20v24M38 20v24M13 14v-6c3 0 5 2 5 5M13 10c-3 0-4-2-4-4M33 14v-6c3 0 5 2 5 5M33 10c-3 0-4-2-4-4'),
+ /* Cueillette et coupes de bois : baobab */ p('M18 42c2-8 2-14 0-20h12c-2 6-2 12 0 20zM18 22c-4-2-8-3-10-7M30 22c4-2 8-3 10-7M24 22v-9M24 13c-4 0-6-3-6-6M24 13c4 0 6-3 6-6M6 42h36'),
+ /* Droits d'usage : clé et terrain */ c(14,22,7)+p('M21 22h21M36 22v6M41 22v5M4 38c8-3 16-3 20 0s14 3 20 0')+dot(14,22),
+ /* Espaces naturels et faune : arbres et oiseau */ p('M14 42V31M7 31h14l-7-14zM32 42V28M23 28h18l-9-17zM34 8c2-2 4-2 6 0M34 8c-2-2-4-2-6 0M4 42h40'),
+ /* Feux de brousse : flamme sur herbes */ p('M24 6c2 6 10 10 10 19a10 10 0 0 1-20 0c0-6 4-8 4-13 3 2 5 5 5 9M4 42h40M8 42v-6M12 42v-4M36 42v-5M40 42v-7'),
+ /* Gestion des déchets : conteneur à roues */ p('M8 14h32l-3 22H11zM5 14h38M15 9h18v5M20 20v10M28 20v10')+c(15,40,2.5)+c(33,40,2.5),
+ /* Insalubrité et nuisances : signalement */ p('M24 6l20 34H4zM24 18v10')+dot(24,33),
+ /* Espaces verts : arbre et banc */ c(32,17,9)+p('M32 26v16M4 30h20M6 30v10M22 30v10M4 24h20M4 42h40'),
+ /* Équipements municipaux : hôtel de ville */ p('M4 42h40M8 42V22M40 42V22M16 42V22M24 42V22M32 42V22M4 22l20-12 20 12zM24 10V3h8v4h-8'),
+ /* Foires et marchés : étal couvert */ p('M6 18l4-10h28l4 10zM6 18c0 3 3 5 6 5s6-2 6-5c0 3 3 5 6 5s6-2 6-5c0 3 3 5 6 5s6-2 6-5M10 23v19M38 23v19M4 42h40M18 34h12v8H18z'),
+ /* Cimetières : stèles */ p('M8 42V24a6 6 0 0 1 12 0v18M28 42V28a5 5 0 0 1 10 0v14M4 42h40M14 27v8M28 34h10'),
+ /* Lieux de culte : mosquée et minaret */ p('M4 42h36M8 42V26h24v16M8 26c0-8 6-12 12-12s12 4 12 12M20 14V9M40 42V12M38 12h4M40 12V7M16 42v-7a4 4 0 0 1 8 0v7'),
+ /* Travaux en cours : cône et barrière */ p('M24 40l6-28 6 28zM26 31h8M27 24h6M20 40h20M4 18h14M4 25h14M7 18v22M15 18v22'),
+ /* Offre de soins : centre de santé */ p('M8 42V14h32v28M4 42h40M20 42v-8h8v8M24 18v10M19 23h10M13 34h2M33 34h2'),
+ /* Couverture maladie universelle : cœur protégé */ p('M24 42S8 33 8 21a8 8 0 0 1 16-4 8 8 0 0 1 16 4c0 12-16 21-16 21zM24 21v10M19 26h10'),
+ /* Accessibilité aux soins : temps d'accès */ c(18,20,12)+p('M18 13v7l4 3M36 44s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13z')+c(36,31,2.5),
+ /* Établissements scolaires : école et cloche */ p('M4 42h40M8 42V22h32v20M4 22L24 10l20 12M20 42v-8h8v8M24 10V4')+c(24,18,2),
+ /* Bourses et aides scolaires : toque et pièce */ p('M4 16l20-8 20 8-20 8zM12 20v7c0 3 6 5 12 5M40 18v8')+c(34,37,7)+p('M34 33v8M31.5 35h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4'),
+ /* Patrimoine historique : édifice à colonnes */ p('M4 42h40M6 38h36M8 18h32L24 8zM12 18v20M20 18v20M28 18v20M36 18v20'),
+ /* Équipements culturels : djembé */ p('M13 7h22l-5 15 5 20H13l5-20zM13 7c0 2 5 3 11 3s11-1 11-3M18 22h12M15 13l15 13M33 13L18 26'),
+ /* Équipements sportifs : ballon */ c(24,24,18)+p('M24 15l8 6-3 9h-10l-3-9zM24 6v9M32 21l9-3M29 30l5 8M19 30l-5 8M16 21l-9-3'),
+ /* Lutte contre les incendies : bouche d'incendie */ p('M14 42h20M17 42V18h14v24M14 18h20M19 18v-4a5 5 0 0 1 10 0v4M10 26h7M31 26h7M22 31h4'),
+ /* Zones inondables : maison dans l'eau */ p('M10 26L24 14l14 12M14 23v9M34 23v9M4 36c4 0 4-3 8-3s4 3 8 3 4-3 8-3 4 3 8 3 4-3 8-3M4 43c4 0 4-3 8-3s4 3 8 3 4-3 8-3 4 3 8 3 4-3 8-3'),
+ /* Plan de développement : feuille de route */ p('M6 40c8 0 8-10 16-10s8-10 14-10M36 20V6l8 4-8 4')+c(8,40,2.5)+c(22,30,2.5),
+ /* Projets et investissements : croissance */ p('M6 42h36M10 42V32M18 42V26M26 42V30M34 42V20M8 24l10-8 8 4 14-12M34 8h6v6'),
+ /* Contrat-plan État–ville : convention signée */ p('M8 6h20l8 8v8M28 6v8h8M8 6v36h12M14 18h14M14 24h10M14 30h6M24 40c4-4 6-2 8-6l7-7 3 3-7 7c-4 2-2 4-6 8z'),
+ /* Fiscalité locale : reçu et pourcentage */ p('M10 4h28v38l-5-3-5 3-4-3-5 3-4-3-5 3zM18 28l12-12')+c(19,17,2)+c(29,27,2),
+ /* Coordination départementale : réseau des communes */ c(24,24,5)+c(9,9,4)+c(39,9,4)+c(9,39,4)+c(39,39,4)+p('M12 12l8 8M36 12l-8 8M12 36l8-8M36 36l-8-8')
+];
+const TH_ICON={all:'layers',territoire:'user',foncier:'grid',mobilite:'road',agri:'trail',env:'tree',equip:'building',sante:'cross',educ:'school',risques:'flood',dev:'chart'};
+const QUICK=['Foires et marchés','Routes et voiries','Points d’eau','Parcours du bétail','Plan d’occupation des sols','Documents d’urbanisme (PDU, SDAU)','Offre de soins','Établissements scolaires','Équipements municipaux'];
+const COLL={C:{name:'Commune de Ndiass',short:'commune'},V:{name:'Ville de Thiès',short:'ville'},D:{name:'Département de Mbour',short:'collectivité départementale'}};
+const S={theme:'all',tab:'GP',q:'',nv:'V',map:null,agent:false};
+try{const s=JSON.parse(localStorage.getItem('sunucarto')||'{}');if(s.nv)S.nv=s.nv;}catch(e){}
+
+const $=id=>document.getElementById(id);
+const svg=(d,s)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" class="ico" aria-hidden="true"><path d="${d}"/></svg>`;
+const LOCK='M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z';
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function visible(){
+  const q=S.q.trim().toLowerCase();
+  return MAPS.filter(m=>(S.nv==='D'||m.n.includes(S.nv))&&(S.tab==='M'||m.p!=='M')&&(!q||(m.t+' '+m.d).toLowerCase().includes(q)));
+}
+function renderHome(){
+  const c=COLL[S.nv];
+  $('coll-name').textContent=c.name;$('foot-coll').textContent=c.name;$('foot-coll2').textContent=c.name;
+  const art={C:'de la ',V:'de la ',D:'du '}[S.nv];
+  $('hero-title').textContent='Bienvenue sur le portail cartographique '+art+c.name.charAt(0).toLowerCase()+c.name.slice(1);
+  $('hero-coll').textContent=(S.nv==='D'?'le ':'la ')+c.name.charAt(0).toLowerCase()+c.name.slice(1);
+  $('dept-note').hidden=S.nv!=='D';
+  const base=visible();
+  $('themes').innerHTML=THEMES.map(t=>{
+    const n=t.id==='all'?base.length:base.filter(m=>m.th===t.id).length;
+    return `<li><button type="button" class="th" data-th="${t.id}" aria-pressed="${S.theme===t.id}"><span class="lbl">${svg(ICONS[TH_ICON[t.id]],20)}${t.l}</span><span class="n">${n}</span></button></li>`;
+  }).join('');
+  const cards=base.filter(m=>S.theme==='all'||m.th===S.theme);
+  $('grid').innerHTML=cards.map(m=>`<button type="button" class="tile" data-map="${m.id}"><span class="ic"><svg viewBox="0 0 48 48" width="46" height="46" class="ico ico48" aria-hidden="true">${PICTOS[m.id]}</svg></span><span class="t">${esc(m.t)}</span><span class="meta"><span>${m.a}</span>${m.p==='M'?`<span class="lock">${svg(LOCK,13)}Agents</span>`:''}</span></button>`).join('');
+  $('empty').hidden=cards.length>0;
+  const cur=THEMES.find(t=>t.id===S.theme);
+  $('count').innerHTML=`<strong>${cur.l}</strong> · ${cards.length} carte${cards.length>1?'s':''}`;
+  $('tab-gp').setAttribute('aria-selected',S.tab==='GP');$('tab-m').setAttribute('aria-selected',S.tab==='M');
+  $('btn-agents-l').textContent=S.agent?'Agent connecté':'Espace agents';
+  refreshCatalog();
+}
+
+/* ---------- Visionneuse ---------- */
+const WATER=[
+ {x:430,y:420,r:14,n:'Forage du chef-lieu',type:'Forage motorisé',acces:'[Régime d’accès voté]'},
+ {x:260,y:200,r:11,n:'Puits du village A',type:'Puits pastoral',acces:'[Régime d’accès voté]'},
+ {x:700,y:160,r:11,n:'Forage du village B',type:'Forage',acces:'[Régime d’accès voté]'},
+ {x:360,y:600,r:11,n:'Abreuvoir sud',type:'Abreuvoir',acces:'[Régime d’accès voté]'},
+ {x:892,y:540,r:14,n:'Mare temporaire',type:'Mare (saison des pluies)',acces:'Libre'}];
+$('L-eau').innerHTML=WATER.map((w,i)=>i===4
+ ?`<g class="pt" data-w="${i}" tabindex="0" role="button" aria-label="${w.n}"><path d="M850 520 C870 500 920 505 930 530 C935 560 880 575 855 555 Z" style="fill:var(--water-soft);stroke:var(--water)" stroke-width="2"/></g>`
+ :`<g class="pt" data-w="${i}" tabindex="0" role="button" aria-label="${w.n}"><circle cx="${w.x}" cy="${w.y}" r="${w.r}" style="fill:var(--surface);stroke:var(--water)" stroke-width="3"/><circle cx="${w.x}" cy="${w.y}" r="${w.r/2.3}" style="fill:var(--water)"/></g>`).join('');
+
+const LAYER_DEFS={
+ betail:{l:'Chemins de bétail',sym:'<path d="M2 8H30" fill="none" style="stroke:var(--accent)" stroke-width="3" stroke-dasharray="6 4"/>'},
+ couloir:{l:'Couloirs de transhumance',sym:'<rect x="2" y="3" width="28" height="10" style="fill:var(--map-corridor)"/>'},
+ eau:{l:'Points d’eau',sym:'<circle cx="16" cy="8" r="5" style="fill:var(--surface);stroke:var(--water)" stroke-width="2.5"/>'},
+ culture:{l:'Zones de culture',sym:'<rect x="3" y="3" width="26" height="10" style="fill:var(--map-crop);stroke:var(--map-crop-line)" stroke-width="1.5"/>'},
+ routes:{l:'Routes',sym:'<path d="M2 8H30" style="stroke:var(--map-road-line)" stroke-width="4"/>'},
+ villages:{l:'Villages et chef-lieu',sym:'<rect x="11" y="3" width="10" height="10" style="fill:var(--map-ink)"/>'},
+ limites:{l:'Limites communales',sym:'<path d="M2 8H30" fill="none" style="stroke:var(--map-limit)" stroke-width="3" stroke-dasharray="1 5" stroke-linecap="round"/>'}
+};
+const FULL=['betail','couloir','eau','culture','routes','villages','limites'];
+const AGRI_IDS=[16,17,18,19];
+let layerOn={};
+
+function openMap(id){
+  const m=MAPS[id];S.map=id;
+  $('view-home').hidden=true;$('view-data').hidden=true;$('view-map').hidden=false;$('footer').hidden=true;setNav('nav-home');
+  $('crumb-theme').textContent=THEMES.find(t=>t.id===m.th).l;
+  $('map-title').textContent=m.t;$('map-desc').textContent=m.d+' Fondement : '+m.a.toLowerCase()+' du CGCT.';
+  const full=AGRI_IDS.includes(id);
+  const keys=full?FULL:['routes','villages','limites'];
+  layerOn={};FULL.forEach(k=>layerOn[k]=keys.includes(k));
+  if(id===18){layerOn.betail=false;layerOn.couloir=false;}
+  $('layers').innerHTML=keys.map(k=>`<label class="lyr"><input type="checkbox" id="ly-${k}" data-ly="${k}" ${layerOn[k]?'checked':''}><span>${LAYER_DEFS[k].l}</span><svg viewBox="0 0 32 16" width="32" height="16" aria-hidden="true">${LAYER_DEFS[k].sym}</svg></label>`).join('');
+  $('banner').hidden=full;$('info').hidden=true;
+  applyLayers();resetView();
+  window.scrollTo(0,0);
+}
+function applyLayers(){FULL.forEach(k=>{$('L-'+k).style.display=layerOn[k]?'':'none';});}
+function goHome(){S.map=null;$('view-home').hidden=false;$('view-map').hidden=true;$('view-data').hidden=true;setNav('nav-home');$('footer').hidden=false;setMeasure(false);renderHome();drawSat();}
+
+/* zoom / déplacement */
+const map=$('map');const V0={x:0,y:0,w:1000,h:680};let V={...V0};
+function setVB(){map.setAttribute('viewBox',`${V.x} ${V.y} ${V.w} ${V.h}`);
+  const km=Math.round(1*V.w/1000*100)/100;$('scale-l').textContent=(km<1?Math.round(km*1000)+' m':km.toLocaleString('fr-FR')+' km');}
+function zoom(f,cx,cy){const nw=Math.min(2000,Math.max(180,V.w*f));const k=nw/V.w;
+  if(cx==null){cx=V.x+V.w/2;cy=V.y+V.h/2;}
+  V={x:cx-(cx-V.x)*k,y:cy-(cy-V.y)*k,w:nw,h:V.h*k};setVB();}
+function resetView(){V={...V0};setVB();}
+function toSvg(e){const p=map.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(map.getScreenCTM().inverse());}
+$('zin').onclick=()=>zoom(1/1.4);$('zout').onclick=()=>zoom(1.4);$('zreset').onclick=resetView;
+const zone=$('mapzone');
+zone.addEventListener('wheel',e=>{if(e.target.closest('.info,.tools,.panel'))return;e.preventDefault();const p=toSvg(e);zoom(e.deltaY<0?1/1.15:1.15,p.x,p.y);},{passive:false});
+let drag=null;
+zone.addEventListener('pointerdown',e=>{if(e.target.closest('.info,.tools,.banner,.pt')||measuring)return;drag={p:toSvg(e),moved:false};zone.classList.add('drag');zone.setPointerCapture(e.pointerId);});
+zone.addEventListener('pointermove',e=>{if(!drag)return;const p=toSvg(e);V.x-=p.x-drag.p.x;V.y-=p.y-drag.p.y;setVB();});
+const endDrag=()=>{drag=null;zone.classList.remove('drag');};
+zone.addEventListener('pointerup',endDrag);zone.addEventListener('pointercancel',endDrag);
+
+/* mesure */
+let measuring=false,mpts=[];
+function setMeasure(on){measuring=on;mpts=[];$('L-measure').innerHTML='';$('measure').setAttribute('aria-pressed',on);$('measure-l').hidden=!on;$('measure-l').textContent=on?'Cliquez deux points sur la carte':'';zone.style.cursor=on?'crosshair':'';}
+$('measure').onclick=()=>setMeasure(!measuring);
+map.addEventListener('click',e=>{
+  if(!measuring)return;const p=toSvg(e);if(mpts.length===2)mpts=[];mpts.push(p);
+  const g=$('L-measure');g.innerHTML=mpts.map(q=>`<circle cx="${q.x}" cy="${q.y}" r="6" style="fill:var(--accent)"/>`).join('');
+  if(mpts.length===2){const[a,b]=mpts;const d=Math.hypot(b.x-a.x,b.y-a.y)/1000;
+    g.innerHTML+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" style="stroke:var(--accent)" stroke-width="3" stroke-dasharray="6 5"/>`;
+    $('measure-l').textContent='Distance : '+(d<1?Math.round(d*1000)+' m':d.toFixed(2).replace('.',',')+' km')+' (échelle indicative)';}
+});
+
+/* fiche point d'eau */
+function showWater(i){const w=WATER[i];$('info-title').textContent=w.n;
+  $('info-dl').innerHTML=`<dt>Type</dt><dd>${w.type}</dd><dt>Accès</dt><dd>${w.acces}</dd><dt>Gestionnaire</dt><dd>[Nom du gestionnaire]</dd><dt>Délibération</dt><dd>[N° et date]</dd>`;
+  $('info').hidden=false;$('info-close').focus();}
+$('L-eau').addEventListener('click',e=>{const g=e.target.closest('.pt');if(g&&!measuring){e.stopPropagation();showWater(+g.dataset.w);}});
+$('L-eau').addEventListener('keydown',e=>{const g=e.target.closest('.pt');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();showWater(+g.dataset.w);}});
+$('info-close').onclick=()=>{$('info').hidden=true;};
+
+/* toast */
+let tt;function toast(msg){if($('view-map').hidden){toastHome(msg);return;}const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600);}
+$('share').onclick=()=>{const txt='Carte « '+MAPS[S.map].t+' » – '+COLL[S.nv].name;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('Lien copié'),()=>toast('Copie impossible ici : le lien sera généré par le portail'));}else toast('Copie impossible ici');};
+$('dl').onclick=()=>toast('Dans le portail, ce bouton exportera la couche en GeoJSON ou CSV.');
+document.querySelectorAll('input[name="fond"]').forEach(r=>r.onchange=()=>{const img=$('fond-img').checked;$('L-imagerie').hidden=!img;});
+
+/* événements accueil */
+$('themes').addEventListener('click',e=>{const b=e.target.closest('[data-th]');if(b){S.theme=b.dataset.th;renderHome();}});
+$('grid').addEventListener('click',e=>{const b=e.target.closest('[data-map]');if(!b)return;const m=MAPS[+b.dataset.map];
+  if(m.p==='M'&&!S.agent){toast('Carte réservée aux agents : connectez-vous à l’espace agents.');return;}openMap(+b.dataset.map);});
+$('search-form').addEventListener('submit',e=>{e.preventDefault();S.theme='all';renderHome();document.querySelector('.home').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
+const FOOT_MSG={guide:'Le guide d’utilisation sera une page dédiée du portail.',data:'Catalogue des jeux de données ouvertes (GeoJSON, CSV, WMS) : page à brancher.',report:'Formulaire de signalement : page à brancher.',site:'Lien vers le site officiel de la collectivité.',cgct:'Lien vers le texte du CGCT.',legal:'Mentions légales : page à rédiger.',a11y:'Déclaration d’accessibilité : page à rédiger.'};
+$('footer').addEventListener('click',e=>{
+  const c=e.target.closest('[data-copy]');
+  if(c){const txt=$(c.dataset.copy).textContent;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toastHome('Adresse copiée'),()=>toastHome('Sélectionnez l’adresse pour la copier'));}return;}
+  const a=e.target.closest('[data-act]');if(!a)return;e.preventDefault();const k=a.dataset.act;
+  if(k==='home'){goHome();S.theme='all';renderHome();window.scrollTo(0,0);}
+  else if(k==='data'){showCatalog();}
+  else if(k==='agents'){$('btn-agents').click();window.scrollTo(0,0);}
+  else toastHome(FOOT_MSG[k]);
+});
+function toastHome(msg){let t=$('toast-home');if(!t){t=document.createElement('div');t.id='toast-home';t.className='toast';t.setAttribute('role','status');t.style.position='fixed';t.style.bottom='calc(24px + env(safe-area-inset-bottom,0px))';document.body.appendChild(t);}t.textContent=msg;t.hidden=false;clearTimeout(t._t);t._t=setTimeout(()=>t.hidden=true,2800);}
+$('layers').addEventListener('change',e=>{const k=e.target.dataset.ly;if(k){layerOn[k]=e.target.checked;applyLayers();}});
+$('q').addEventListener('input',e=>{S.q=e.target.value;if(S.map!==null)goHome();renderHome();});
+$('tab-gp').onclick=()=>{S.tab='GP';renderHome();};
+$('tab-m').onclick=()=>{S.tab='M';renderHome();};
+$('btn-agents').onclick=()=>{S.agent=!S.agent;S.tab=S.agent?'M':'GP';if(S.map!==null)goHome();renderHome();toast(S.agent?'Connecté en démonstration : les cartes métier sont ouvertes.':'Déconnecté');};
+$('btn-aide').onclick=()=>toast('Choisissez un thème à gauche, puis cliquez sur une carte pour l’ouvrir.');
+$('back').onclick=goHome;
+$('nav-home').onclick=()=>{goHome();window.scrollTo(0,0);};
+$('nav-data').onclick=()=>showCatalog();
+$('hero-cat').onclick=()=>showCatalog();
+$('nav-contact').onclick=()=>{if(S.map!==null)goHome();$('footer').scrollIntoView({behavior:'auto'});};
+$('home-link').onclick=e=>{e.preventDefault();goHome();};
+$('niveau').value=S.nv;
+$('niveau').onchange=e=>{S.nv=e.target.value;S.theme='all';try{localStorage.setItem('sunucarto',JSON.stringify({nv:S.nv}));}catch(err){}renderHome();};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('info').hidden)$('info').hidden=true;else if(measuring)setMeasure(false);}});
+
+/* ================= CATALOGUE DE DONNÉES (fiches fictives, inspiré de GeoNetwork) ================= */
+const ORGS={sig:'Cellule SIG',urba:'Service de l’urbanisme',tech:'Services techniques',env:'Service de l’hygiène et de l’environnement',social:'Direction du développement social',rural:'Commission domaniale',plan:'Direction de la planification',cegit:'CEGIT'};
+const ISO={'Limites administratives':'boundaries','Planification et cadastre':'planningCadastre','Transports':'transportation','Localisation':'location','Réseaux et services publics':'utilitiesCommunication','Agriculture et élevage':'farming','Eaux intérieures':'inlandWaters','Équipements et bâtiments':'structure','Économie':'economy','Société':'society','Santé':'health','Environnement':'environment','Imagerie et occupation du sol':'imageryBaseMapsEarthCover','Altimétrie':'elevation'};
+const FREQ={'Continue':'continual','Mensuelle':'monthly','Semestrielle':'biannually','Annuelle':'annually','Tous les 3 ans':'irregular','À chaque révision':'asNeeded','Selon les besoins':'asNeeded'};
+const OGC=['WMS','WFS','WMTS','CSW'];
+const DS=[
+{id:'001',t:'Limites administratives de la collectivité',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Limites administratives',org:'sig',map:0,lv:'CVD',acc:'Libre',fmt:['GeoJSON','Shapefile','GeoPackage','WMS','WFS'],cr:'2023-02-15',rev:'2026-01-20',freq:'Selon les besoins',sc:'1:10 000',pos:'± 2 m',cnt:1,q:100,views:1240,
+ kw:['limites administratives','collectivité territoriale','découpage territorial'],
+ ab:'Contour officiel de la collectivité, avec son chef-lieu et sa superficie. Couche de référence utilisée par toutes les cartes du portail pour le cadrage et les calculs de surface.',
+ lin:'Numérisation à partir du texte de création de la collectivité et des limites transmises par les services de l’État, contrôlée sur l’orthophotographie 2025.',
+ at:[['code_coll','Texte','Code de la collectivité'],['nom','Texte','Nom officiel'],['chef_lieu','Texte','Chef-lieu'],['superficie_ha','Réel','Superficie en hectares'],['date_maj','Date','Date de dernière mise à jour']]},
+{id:'002',t:'Quartiers et villages',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Limites administratives',org:'sig',map:1,lv:'CV',acc:'Libre',fmt:['GeoJSON','Shapefile','WMS','WFS'],cr:'2023-05-10',rev:'2026-03-02',freq:'Annuelle',sc:'1:5 000',pos:'± 2 m',cnt:68,q:96,views:980,
+ kw:['quartiers','villages','conseils de quartier','population'],
+ ab:'Découpage de la collectivité en quartiers et villages, avec une estimation de la population et le délégué de quartier. Sert de base aux statistiques locales et à l’organisation des conseils de quartier.',
+ lin:'Limites tracées avec les délégués de quartier lors d’ateliers participatifs (2023), puis mises à jour chaque année à partir des délibérations du conseil.',
+ at:[['code_quartier','Texte','Code du quartier ou du village'],['nom','Texte','Nom usuel'],['type','Liste','Quartier ou village'],['population_estimee','Entier','Population estimée'],['delegue','Texte','Nom du délégué de quartier (fictif)']]},
+{id:'003',t:'Plan d’occupation des sols (POS)',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Planification et cadastre',org:'urba',map:5,lv:'CV',acc:'Libre',fmt:['GeoJSON','GeoPackage','PDF','WMS','WFS'],cr:'2022-09-01',rev:'2025-12-15',freq:'À chaque révision',sc:'1:5 000',pos:'± 1 m',cnt:214,q:100,views:1530,
+ kw:['urbanisme','zonage','POS','affectation des sols','règlement'],
+ ab:'Zonage réglementaire du plan d’occupation des sols : affectation de chaque zone, coefficient d’occupation du sol et hauteur maximale autorisée. À consulter avant toute demande d’autorisation de construire.',
+ lin:'Vectorisation du POS approuvé, calée sur l’orthophotographie 2025 ; chaque modification est rattachée à la délibération qui l’a approuvée.',
+ at:[['code_zone','Texte','Code de la zone'],['libelle','Texte','Libellé de la zone'],['affectation','Liste','Habitat, équipement, activité, zone naturelle…'],['cos','Réel','Coefficient d’occupation du sol'],['hauteur_max_m','Réel','Hauteur maximale autorisée (m)'],['ref_deliberation','Texte','Référence de la délibération']]},
+{id:'004',t:'Lotissements approuvés',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Planification et cadastre',org:'urba',map:6,lv:'CV',acc:'Libre',fmt:['GeoJSON','Shapefile','WMS','WFS'],cr:'2023-01-20',rev:'2026-09-08',freq:'Continue',sc:'1:2 000',pos:'± 0,5 m',cnt:37,q:92,views:1105,
+ kw:['lotissement','parcelles','VRD','viabilisation'],
+ ab:'Périmètres des lotissements approuvés, avec la date d’approbation, le nombre de parcelles et l’état de viabilisation (voirie, eau, électricité).',
+ lin:'Saisie à partir des plans de lotissement approuvés, géoréférencés et contrôlés par levé GNSS des bornes principales.',
+ at:[['nom_lotissement','Texte','Nom du lotissement'],['date_approbation','Date','Date d’approbation'],['nb_parcelles','Entier','Nombre de parcelles'],['etat_vrd','Liste','Complet, partiel ou non viabilisé'],['superficie_ha','Réel','Superficie (ha)']]},
+{id:'005',t:'Parcelles cadastrales',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Planification et cadastre',org:'urba',map:8,lv:'CV',acc:'Restreint',fmt:['GeoPackage','WFS'],cr:'2024-02-01',rev:'2026-10-01',freq:'Mensuelle',sc:'1:1 000',pos:'± 0,3 m',cnt:41820,q:88,views:640,
+ kw:['cadastre','parcelles','domaine','foncier'],
+ ab:'Parcellaire de la collectivité avec le statut foncier de chaque parcelle. Données nominatives : accès réservé aux agents habilités.',
+ lin:'Intégration du parcellaire issu des plans de lotissement et des levés topographiques, rapprochée des registres fonciers de la collectivité.',
+ at:[['num_parcelle','Texte','Numéro de parcelle'],['section','Texte','Section'],['superficie_m2','Réel','Superficie (m²)'],['statut','Liste','Domaine national, titre foncier, bail…'],['type_detenteur','Liste','Collectivité, État ou privé']]},
+{id:'006',t:'Réseau de voirie',type:'Jeu de données',rep:'Vecteur',geom:'Ligne',iso:'Transports',org:'tech',map:11,lv:'CV',acc:'Libre',fmt:['GeoJSON','Shapefile','GeoPackage','WMS','WFS'],cr:'2023-04-03',rev:'2026-07-15',freq:'Semestrielle',sc:'1:5 000',pos:'± 1 m',cnt:3412,q:94,views:1380,
+ kw:['voirie','routes','revêtement','entretien'],
+ ab:'Tronçons de voies de la collectivité, avec leur classement, leur revêtement et leur état. Utilisé pour programmer l’entretien et les travaux.',
+ lin:'Digitalisation sur l’orthophotographie 2025, enrichie par les relevés d’état réalisés par les services techniques (campagne semestrielle).',
+ at:[['id_troncon','Entier','Identifiant du tronçon'],['nom_voie','Texte','Nom de la voie'],['classement','Liste','Nationale, régionale, communale, non classée'],['revetement','Liste','Bitume, pavés, latérite, sable'],['etat','Liste','Bon, moyen, dégradé'],['largeur_m','Réel','Largeur de chaussée (m)']]},
+{id:'007',t:'Adressage : rues et numéros',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Localisation',org:'tech',map:13,lv:'CV',acc:'Libre',fmt:['GeoJSON','CSV','WFS'],cr:'2024-06-12',rev:'2026-08-30',freq:'Continue',sc:'1:2 000',pos:'± 1 m',cnt:18250,q:81,views:870,
+ kw:['adresse','numérotation','nom de rue','géocodage'],
+ ab:'Points d’adresse (numéro et nom de voie) issus du programme d’adressage. Permet la localisation des usagers, des secours et des livraisons.',
+ lin:'Collecte terrain sur smartphone (formulaires mobiles), contrôle de cohérence avec le réseau de voirie et dédoublonnage.',
+ at:[['id_adresse','Entier','Identifiant'],['numero','Texte','Numéro'],['nom_voie','Texte','Nom de la voie'],['quartier','Texte','Quartier'],['x','Réel','Coordonnée X (UTM 28N)'],['y','Réel','Coordonnée Y (UTM 28N)']]},
+{id:'008',t:'Points lumineux d’éclairage public',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Réseaux et services publics',org:'tech',map:14,lv:'CV',acc:'Libre',fmt:['GeoJSON','CSV','WMS'],cr:'2024-03-18',rev:'2026-09-25',freq:'Mensuelle',sc:'1:2 000',pos:'± 1 m',cnt:4960,q:90,views:520,
+ kw:['éclairage public','lampadaire','énergie','maintenance'],
+ ab:'Inventaire des lampadaires : type de lampe, puissance et état de fonctionnement. Mis à jour au fil des interventions de maintenance.',
+ lin:'Inventaire terrain initial (2024), mis à jour à chaque intervention signalée par les équipes de maintenance.',
+ at:[['id_point','Entier','Identifiant'],['type_lampe','Liste','LED, sodium, solaire'],['puissance_w','Entier','Puissance (W)'],['etat','Liste','En service, en panne'],['date_pose','Date','Date de pose']]},
+{id:'009',t:'Chemins de bétail et couloirs de transhumance',type:'Jeu de données',rep:'Vecteur',geom:'Ligne',iso:'Agriculture et élevage',org:'rural',map:16,lv:'CD',acc:'Libre',fmt:['GeoJSON','Shapefile','KML','WMS'],cr:'2024-05-06',rev:'2026-06-10',freq:'Annuelle',sc:'1:10 000',pos:'± 5 m',cnt:46,q:85,views:760,
+ kw:['pastoralisme','transhumance','parcours du bétail','prévention des conflits'],
+ ab:'Chemins de bétail délimités par la commune et couloirs de transhumance, avec leur largeur réglementaire et l’état du balisage. Outil de prévention des conflits entre agriculteurs et éleveurs.',
+ lin:'Relevés GPS réalisés avec la commission domaniale et les organisations d’éleveurs, validés par délibération du conseil ; contrôle annuel avant l’hivernage.',
+ at:[['id_chemin','Entier','Identifiant'],['type','Liste','Chemin de bétail ou couloir de transhumance'],['largeur_m','Réel','Largeur réglementaire (m)'],['ref_deliberation','Texte','Délibération de délimitation'],['etat_balisage','Liste','Bon, partiel, absent']]},
+{id:'010',t:'Points d’eau pastoraux',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Eaux intérieures',org:'rural',map:18,lv:'CD',acc:'Libre',fmt:['GeoJSON','CSV','KML','WMS','WFS'],cr:'2024-05-06',rev:'2026-05-28',freq:'Annuelle',sc:'1:10 000',pos:'± 5 m',cnt:132,q:89,views:690,
+ kw:['forage','puits','mare','abreuvement','hydraulique pastorale'],
+ ab:'Forages, puits, mares et abreuvoirs, avec leur régime d’accès, leur gestionnaire et leur état de fonctionnement.',
+ lin:'Inventaire terrain avec les comités de gestion des points d’eau ; état de fonctionnement mis à jour chaque année en fin de saison sèche.',
+ at:[['id_point','Entier','Identifiant'],['type','Liste','Forage, puits, mare, abreuvoir'],['regime_acces','Texte','Régime d’accès voté'],['gestionnaire','Texte','Comité ou gestionnaire'],['fonctionnel','Booléen','Point d’eau fonctionnel'],['debit_m3h','Réel','Débit (m³/h)']]},
+{id:'011',t:'Équipements municipaux',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Équipements et bâtiments',org:'sig',map:27,lv:'CV',acc:'Libre',fmt:['GeoJSON','CSV','WMS','WFS'],cr:'2023-03-01',rev:'2026-04-14',freq:'Annuelle',sc:'1:2 000',pos:'± 1 m',cnt:86,q:97,views:1010,
+ kw:['équipements publics','services municipaux','état civil','bâtiments'],
+ ab:'Bâtiments et services de la collectivité (mairie, centres d’état civil, services techniques…), avec leur adresse et leurs horaires d’ouverture.',
+ lin:'Inventaire du patrimoine bâti de la collectivité, localisé sur l’orthophotographie et vérifié avec chaque service.',
+ at:[['nom','Texte','Nom de l’équipement'],['categorie','Liste','Administration, état civil, technique…'],['adresse','Texte','Adresse'],['horaires','Texte','Horaires d’ouverture'],['telephone','Texte','Téléphone du service']]},
+{id:'012',t:'Foires et marchés',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Économie',org:'tech',map:28,lv:'CV',acc:'Libre',fmt:['GeoJSON','CSV','WMS'],cr:'2024-01-15',rev:'2026-02-20',freq:'Annuelle',sc:'1:2 000',pos:'± 1 m',cnt:14,q:100,views:1190,
+ kw:['marché','louma','commerce','cantines'],
+ ab:'Emprises des marchés quotidiens et hebdomadaires (loumas), avec leur jour de tenue, le nombre de cantines et la superficie.',
+ lin:'Délimitation sur l’orthophotographie, complétée par le recensement des cantines réalisé par le service des recettes.',
+ at:[['nom','Texte','Nom du marché'],['type','Liste','Quotidien ou hebdomadaire'],['jour_louma','Liste','Jour de tenue'],['nb_cantines','Entier','Nombre de cantines'],['superficie_m2','Réel','Superficie (m²)']]},
+{id:'013',t:'Établissements scolaires',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Société',org:'social',map:35,lv:'VD',acc:'Libre',fmt:['GeoJSON','CSV','WMS','WFS'],cr:'2023-09-05',rev:'2025-11-30',freq:'Annuelle',sc:'1:5 000',pos:'± 2 m',cnt:212,q:93,views:940,
+ kw:['école','daara','éducation','alphabétisation'],
+ ab:'Écoles, collèges, lycées, daaras et centres d’alphabétisation, avec leur statut et leurs effectifs de la dernière rentrée.',
+ lin:'Localisation des établissements à partir des listes de l’inspection, complétée sur le terrain ; effectifs mis à jour à chaque rentrée scolaire.',
+ at:[['nom','Texte','Nom de l’établissement'],['cycle','Liste','Préscolaire, élémentaire, moyen, secondaire, daara…'],['statut','Liste','Public ou privé'],['effectif','Entier','Effectif de la dernière rentrée'],['nb_classes','Entier','Nombre de classes']]},
+{id:'014',t:'Structures sanitaires',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Santé',org:'social',map:32,lv:'VD',acc:'Libre',fmt:['GeoJSON','CSV','WMS'],cr:'2023-10-12',rev:'2026-03-18',freq:'Annuelle',sc:'1:5 000',pos:'± 2 m',cnt:41,q:95,views:1060,
+ kw:['santé','poste de santé','case de santé','soins'],
+ ab:'Hôpitaux, centres, postes et cases de santé, avec leur niveau, leur statut et leurs horaires.',
+ lin:'Localisation des structures recensées par le district sanitaire, vérifiée sur le terrain.',
+ at:[['nom','Texte','Nom de la structure'],['niveau','Liste','Hôpital, centre, poste ou case de santé'],['statut','Liste','Public, privé, confessionnel'],['nb_lits','Entier','Nombre de lits'],['horaires','Texte','Horaires d’ouverture']]},
+{id:'015',t:'Zones inondables',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Environnement',org:'env',map:41,lv:'CV',acc:'Libre',fmt:['GeoJSON','GeoPackage','WMS'],cr:'2025-10-20',rev:'2026-10-05',freq:'Annuelle',sc:'1:5 000',pos:'± 2 m',cnt:58,q:87,views:1420,
+ kw:['inondation','hivernage','drainage','risque'],
+ ab:'Zones inondées ou inondables, classées par niveau d’aléa, avec le nombre estimé de ménages exposés. Mise à jour après chaque hivernage.',
+ lin:'Relevés de terrain pendant l’hivernage 2025 combinés à une modélisation hydrologique réalisée à partir du modèle numérique de terrain 5 m.',
+ at:[['id_zone','Entier','Identifiant'],['alea','Liste','Faible, moyen, fort'],['source','Liste','Relevé terrain ou modélisation'],['superficie_ha','Réel','Superficie (ha)'],['menages_exposes','Entier','Ménages exposés (estimation)']]},
+{id:'016',t:'Points de collecte des déchets',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Environnement',org:'env',map:24,lv:'CV',acc:'Libre',fmt:['GeoJSON','CSV','WMS'],cr:'2024-07-01',rev:'2026-09-29',freq:'Mensuelle',sc:'1:2 000',pos:'± 1 m',cnt:395,q:84,views:610,
+ kw:['déchets','collecte','dépôts sauvages','salubrité'],
+ ab:'Bacs, points de regroupement et dépôts sauvages signalés, avec la fréquence de collecte et la capacité.',
+ lin:'Inventaire initial par le service de l’hygiène, enrichi par les signalements des habitants validés par le service.',
+ at:[['id_point','Entier','Identifiant'],['type','Liste','Bac, point de regroupement, dépôt sauvage'],['frequence_collecte','Texte','Fréquence de collecte'],['capacite_m3','Réel','Capacité (m³)'],['date_signalement','Date','Date du signalement']]},
+{id:'017',rk:'ortho',t:'Orthophotographie 2025 (20 cm)',type:'Jeu de données',rep:'Raster',geom:'Grille',iso:'Imagerie et occupation du sol',org:'cegit',map:0,lv:'CVD',acc:'Libre',fmt:['GeoTIFF','WMS','WMTS'],cr:'2025-03-22',rev:'2025-06-30',freq:'Tous les 3 ans',sc:'20 cm',pos:'± 0,4 m',cnt:null,q:99,views:2050,
+ kw:['orthophotographie','imagerie aérienne','drone','fond de plan'],
+ ab:'Mosaïque d’images aériennes verticales à 20 cm de résolution couvrant toute la collectivité. Sert de fond de plan et de référence pour la numérisation des autres couches.',
+ lin:'Prises de vue par drone (mars 2025), aérotriangulation sur 42 points d’appui GNSS, mosaïquage et égalisation radiométrique.',
+ at:[['Bande 1','Octet','Rouge'],['Bande 2','Octet','Vert'],['Bande 3','Octet','Bleu']]},
+{id:'018',rk:'mnt',t:'Modèle numérique de terrain (5 m)',type:'Jeu de données',rep:'Raster',geom:'Grille',iso:'Altimétrie',org:'cegit',map:41,lv:'CVD',acc:'Libre',fmt:['GeoTIFF','ASCII Grid','WMS'],cr:'2025-04-10',rev:'2025-07-15',freq:'Tous les 3 ans',sc:'5 m',pos:'± 0,5 m (altitude)',cnt:null,q:98,views:730,
+ kw:['relief','altitude','MNT','hydrologie'],
+ ab:'Altitude du sol nu sur une grille de 5 m. Utilisé pour les études d’écoulement des eaux, la délimitation des zones inondables et les projets de voirie.',
+ lin:'Calculé à partir du nuage de points photogrammétrique de la campagne drone 2025, après classification et suppression du sursol (bâti, végétation).',
+ at:[['Bande 1','Réel 32 bits','Altitude en mètres']]},
+{id:'019',pic:46,t:'Services cartographiques OGC du portail',type:'Service',rep:'Non applicable',geom:'Non applicable',iso:'Localisation',org:'sig',map:null,lv:'CVD',acc:'Libre',fmt:['WMS','WFS','WMTS','CSW'],cr:'2025-01-10',rev:'2026-10-01',freq:'Continue',sc:'Non applicable',pos:'Non applicable',cnt:null,q:null,views:450,
+ kw:['service OGC','WMS','WFS','CSW','interopérabilité'],
+ ab:'Points d’accès standardisés aux données du portail, à utiliser directement dans QGIS, ArcGIS ou une application web : visualisation (WMS, WMTS), téléchargement (WFS) et catalogue de métadonnées (CSW).',
+ lin:'Services publiés par QGIS Server et le catalogue de métadonnées de la plateforme.',
+ at:null},
+{id:'020',t:'Projets d’investissement du plan de développement',type:'Jeu de données',rep:'Vecteur',geom:'Point',iso:'Économie',org:'plan',map:43,lv:'CV',acc:'Libre',fmt:['GeoJSON','CSV','XLSX','WMS'],cr:'2024-02-28',rev:'2026-09-12',freq:'Semestrielle',sc:'1:5 000',pos:'± 5 m',cnt:74,q:91,views:820,
+ kw:['plan de développement','investissements','projets','suivi'],
+ ab:'Projets inscrits au plan de développement de la collectivité, localisés, avec leur coût, leur financement et leur état d’avancement.',
+ lin:'Saisie par la direction de la planification à partir du plan de développement adopté ; avancement mis à jour à chaque revue semestrielle.',
+ at:[['intitule','Texte','Intitulé du projet'],['secteur','Liste','Secteur'],['cout_fcfa','Entier','Coût prévisionnel (FCFA)'],['financement','Texte','Source de financement'],['avancement_pct','Entier','Avancement (%)'],['annee_prevue','Entier','Année de réalisation prévue']]},
+{id:'021',t:'Plan directeur d’urbanisme et plans de détail',type:'Série de données',rep:'Vecteur',geom:'Polygone',iso:'Planification et cadastre',org:'urba',map:4,lv:'V',acc:'Libre',fmt:['PDF','GeoPackage','WMS'],cr:'2021-11-30',rev:'2025-09-01',freq:'À chaque révision',sc:'1:10 000',pos:'± 2 m',cnt:5,q:100,views:880,
+ kw:['PDU','plan de détail','planification urbaine','documents d’urbanisme'],
+ ab:'Série regroupant le plan directeur d’urbanisme et les plans d’urbanisme de détail en vigueur : périmètres, orientations d’aménagement et documents approuvés au format PDF.',
+ lin:'Documents approuvés numérisés et géoréférencés ; périmètres vectorisés et rattachés à leur acte d’approbation.',
+ at:[['code_doc','Texte','Code du document'],['intitule','Texte','Intitulé'],['type','Liste','PDU ou plan de détail'],['date_approbation','Date','Date d’approbation'],['lien_pdf','Texte','Document approuvé (PDF)']]},
+{id:'022',t:'Délibérations foncières (affectations et désaffectations)',type:'Jeu de données',rep:'Vecteur',geom:'Polygone',iso:'Planification et cadastre',org:'rural',map:7,lv:'C',acc:'Restreint',fmt:['GeoPackage','WFS'],cr:'2024-04-15',rev:'2026-09-30',freq:'Continue',sc:'1:5 000',pos:'± 5 m',cnt:1284,q:83,views:390,
+ kw:['foncier','domaine national','affectation','délibération'],
+ ab:'Terres du domaine national affectées ou désaffectées par délibération du conseil, avec le bénéficiaire et la date. Données nominatives : accès réservé aux agents habilités.',
+ lin:'Saisie au fil des délibérations par la commission domaniale, avec levé GPS des parcelles affectées.',
+ at:[['num_deliberation','Texte','Numéro de délibération'],['date_deliberation','Date','Date'],['nature','Liste','Affectation ou désaffectation'],['beneficiaire','Texte','Bénéficiaire (donnée nominative)'],['superficie_ha','Réel','Superficie (ha)'],['usage','Liste','Habitation, agriculture, élevage…']]}
+];
+const BBOX={C:[-17.12,14.62,-16.93,14.78],V:[-16.99,14.74,-16.86,14.85],D:[-17.15,14.02,-16.55,14.65]};
+const SN=[[-17.53,14.75],[-17.17,14.9],[-16.88,15.25],[-16.67,15.65],[-16.51,16.06],[-16.45,16.35],[-16.28,16.52],[-15.9,16.5],[-15.4,16.57],[-14.95,16.64],[-14.58,16.6],[-14.1,16.3],[-13.8,16.12],[-13.45,15.8],[-13.25,15.55],[-12.95,15.4],[-12.7,15.1],[-12.45,14.8],[-12.2,14.6],[-12.15,14.2],[-12.03,13.85],[-11.88,13.45],[-11.65,13.25],[-11.55,12.95],[-11.4,12.45],[-11.9,12.4],[-12.4,12.37],[-12.95,12.48],[-13.7,12.68],[-14.5,12.67],[-15.2,12.68],[-15.7,12.43],[-16.2,12.47],[-16.73,12.35],[-16.8,12.6],[-16.77,13.06],[-16.75,13.6],[-16.68,13.85],[-16.75,14.1],[-16.95,14.4],[-17.1,14.6]];
+const GM=[[-16.82,13.15],[-16.2,13.25],[-15.5,13.2],[-15,13.3],[-14.4,13.25],[-13.8,13.4],[-13.85,13.6],[-14.4,13.5],[-15,13.6],[-15.5,13.55],[-16,13.6],[-16.56,13.59],[-16.75,13.45]];
+const C={q:'',f:{},sort:'rel',view:'list',page:1,rec:null,tab:'pres',closed:{},scroll:0};
+const PER=8;
+const DL='M12 4v11M7 10l5 5 5-5M5 20h14', MAPIC='M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14';
+const FACETS=[{k:'iso',l:'Catégorie ISO 19115'},{k:'type',l:'Type de ressource'},{k:'rep',l:'Représentation spatiale'},{k:'fmt',l:'Format'},{k:'org',l:'Organisme'},{k:'acc',l:'Conditions d’accès'},{k:'year',l:'Année de mise à jour'}];
+const norm=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const slug=s=>norm(s).replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+const nb=n=>Number(n).toLocaleString('fr-FR');
+const fmtDate=d=>new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+const byId=id=>DS.find(r=>r.id===id);
+const collLow=()=>{const n=COLL[S.nv].name;return n.charAt(0).toLowerCase()+n.slice(1);};
+const orgName=r=>r.org==='cegit'?'CEGIT (prestataire)':COLL[S.nv].name+' – '+ORGS[r.org];
+const accLabel=r=>r.acc==='Libre'?'Libre (données ouvertes)':'Restreint (agents habilités)';
+function uuid(id){let h=2166136261>>>0,s='';for(let i=0;i<32;i++){h^=id.charCodeAt(i%id.length)+i*131;h=Math.imul(h,16777619)>>>0;s+=(h>>>((i%7)*4)&15).toString(16);}return s.slice(0,8)+'-'+s.slice(8,12)+'-4'+s.slice(13,16)+'-a'+s.slice(17,20)+'-'+s.slice(20,32);}
+const svcUrl=(r,f)=>f==='CSW'?'https://carto.[collectivite].sn/csw?SERVICE=CSW&REQUEST=GetCapabilities':`https://carto.[collectivite].sn/ows/${r.map!=null?slug(r.t):'portail'}?SERVICE=${f}&REQUEST=GetCapabilities`;
+function inScope(r){return S.nv==='D'||r.lv.includes(S.nv);}
+function fval(r,k){if(k==='year')return r.rev.slice(0,4);if(k==='org')return orgName(r);if(k==='acc')return r.acc==='Libre'?'Libre':'Restreint';return r[k];}
+function score(r){const q=norm(C.q).trim();if(!q)return 1;let s=0;for(const w of q.split(/\s+/)){let x=0;if(norm(r.t).includes(w))x+=3;if(r.kw.some(k=>norm(k).includes(w)))x+=2;if(norm(r.ab).includes(w))x+=1;if(norm(orgName(r)+' '+r.iso+' '+r.fmt.join(' ')).includes(w))x+=1;if(!x)return 0;s+=x;}return s;}
+function passF(r,except){for(const k in C.f){if(k===except)continue;const sel=C.f[k];if(!sel||!sel.length)continue;const v=fval(r,k);const vs=Array.isArray(v)?v:[v];if(!sel.some(x=>vs.includes(x)))return false;}return true;}
+function thumb(r,big){
+  if(r.rep==='Raster')return `<span class="thumb ${r.rk==='ortho'?'r-ortho':'r-mnt'}${big?' big':''}" aria-hidden="true"></span>`;
+  const pic=r.pic!=null?r.pic:r.map;const sz=big?76:46;
+  return `<span class="thumb${big?' big':''}" aria-hidden="true"><svg viewBox="0 0 48 48" width="${sz}" height="${sz}" class="ico ico48">${PICTOS[pic]}</svg></span>`;
+}
+function recItem(r){
+  const locked=r.acc==='Restreint';
+  return `<article class="rec">${thumb(r)}
+  <div style="min-width:0">
+    <div class="rec-badges"><span class="bdg type">${r.type}</span>${locked?`<span class="bdg lock">${svg(LOCK,12)}Accès restreint</span>`:'<span class="bdg open">Données ouvertes</span>'}<span class="bdg">${r.iso}</span></div>
+    <h3><button type="button" class="lnk" data-rec="${r.id}">${esc(r.t)}</button></h3>
+    <p class="meta">${esc(orgName(r))} · mis à jour le ${fmtDate(r.rev)}</p>
+    <p class="ab">${esc(r.ab)}</p>
+    <div class="fmts">${r.fmt.map(f=>`<span class="fmt">${f}</span>`).join('')}</div>
+  </div>
+  <div class="ract">
+    ${r.map!=null?`<button type="button" class="ibtn" data-showmap="${r.id}" aria-label="Voir sur la carte : ${esc(r.t)}" title="Voir sur la carte">${svg(MAPIC,18)}</button>`:''}
+    <button type="button" class="ibtn" data-rec="${r.id}" data-tab="acces" aria-label="Télécharger : ${esc(r.t)}" title="Télécharger">${svg(DL,18)}</button>
+    <button type="button" class="ibtn" data-rec="${r.id}" aria-label="Fiche de métadonnées : ${esc(r.t)}" title="Fiche de métadonnées">${svg(ICONS.doc,18)}</button>
+  </div></article>`;
+}
+function renderCatalog(){
+  const base=DS.filter(inScope);
+  $('cat-coll').textContent=collLow();
+  const last=base.reduce((m,r)=>r.rev>m?r.rev:m,'0');
+  $('cat-stats').innerHTML=`<li><strong>${base.length}</strong>fiches</li><li><strong>${base.filter(r=>r.type!=='Service').length}</strong>jeux de données</li><li><strong>${base.filter(r=>r.acc==='Libre').length}</strong>en accès libre</li><li>Dernière mise à jour : ${fmtDate(last)}</li>`;
+  const scored=base.map(r=>({r,s:score(r)})).filter(x=>x.s>0);
+  let res=scored.filter(x=>passF(x.r));
+  const srt={rel:(a,b)=>C.q.trim()?(b.s-a.s)||(b.r.views-a.r.views):(b.r.views-a.r.views),date:(a,b)=>b.r.rev.localeCompare(a.r.rev),title:(a,b)=>a.r.t.localeCompare(b.r.t,'fr'),pop:(a,b)=>b.r.views-a.r.views}[C.sort];
+  res.sort(srt);
+  // facettes
+  let nActive=0;
+  $('facets').innerHTML=FACETS.map((f,fi)=>{
+    const all={};base.forEach(r=>{const v=fval(r,f.k);(Array.isArray(v)?v:[v]).forEach(x=>{all[x]=0;});});
+    scored.filter(x=>passF(x.r,f.k)).forEach(x=>{const v=fval(x.r,f.k);(Array.isArray(v)?v:[v]).forEach(y=>{all[y]++;});});
+    let vals=Object.keys(all);vals.sort(f.k==='year'?(a,b)=>b.localeCompare(a):(a,b)=>a.localeCompare(b,'fr'));
+    const sel=C.f[f.k]||[];nActive+=sel.length;
+    const open=C.closed[f.k]!==undefined?!C.closed[f.k]:fi<4;
+    return `<details class="facet" data-fset="${f.k}"${open?' open':''}><summary>${f.l}${sel.length?` <span class="bdg lock">${sel.length}</span>`:''}</summary><ul>${vals.map((v,i)=>`<li><label class="fopt${all[v]===0&&!sel.includes(v)?' zero':''}" for="fc-${f.k}-${i}"><input type="checkbox" id="fc-${f.k}-${i}" data-fk="${f.k}" data-fv="${encodeURIComponent(v)}"${sel.includes(v)?' checked':''}><span class="l">${esc(v)}</span><span class="c">${all[v]}</span></label></li>`).join('')}</ul></details>`;
+  }).join('');
+  $('facet-toggle').textContent=nActive?`Filtres (${nActive})`:'Filtres';
+  // filtres actifs
+  const chips=[];for(const k in C.f)(C.f[k]||[]).forEach(v=>chips.push(`<button type="button" class="fchip" data-rmf="${encodeURIComponent(k)}|${encodeURIComponent(v)}" aria-label="Retirer le filtre ${esc(v)}">${esc(v)}${svg('M6 6l12 12M18 6L6 18',14)}</button>`));
+  if(C.q.trim())chips.unshift(`<button type="button" class="fchip" data-rmq="1" aria-label="Effacer la recherche">« ${esc(C.q.trim())} »${svg('M6 6l12 12M18 6L6 18',14)}</button>`);
+  $('cat-chips').innerHTML=chips.length?chips.join('')+'<button type="button" class="lnk-btn" id="clear-all">Tout effacer</button>':'';
+  // résultats
+  const pages=Math.max(1,Math.ceil(res.length/PER));if(C.page>pages)C.page=pages;
+  const slice=res.slice((C.page-1)*PER,C.page*PER);
+  $('cat-count').innerHTML=`<strong>${res.length}</strong> résultat${res.length>1?'s':''}${C.q.trim()?` pour « ${esc(C.q.trim())} »`:''}`;
+  $('cat-empty').hidden=res.length>0;
+  $('cat-results').className='rlist'+(C.view==='grid'?' grid':'');
+  $('cat-results').innerHTML=slice.map(x=>recItem(x.r)).join('');
+  $('vt-list').setAttribute('aria-pressed',C.view==='list');$('vt-grid').setAttribute('aria-pressed',C.view==='grid');
+  $('cat-sort').value=C.sort;
+  let pg='';
+  if(pages>1){pg+=`<button type="button" data-page="${C.page-1}"${C.page===1?' disabled':''} aria-label="Page précédente">‹</button>`;
+    for(let i=1;i<=pages;i++)pg+=`<button type="button" data-page="${i}"${i===C.page?' aria-current="page"':''}>${i}</button>`;
+    pg+=`<button type="button" data-page="${C.page+1}"${C.page===pages?' disabled':''} aria-label="Page suivante">›</button>`;}
+  $('cat-pager').innerHTML=pg;
+}
+function emprise(b){
+  const W=280,H=200,X=lo=>(lo+17.7)/6.5*W,Y=la=>(16.85-la)/4.7*H;
+  const pts=a=>a.map(([lo,la])=>X(lo).toFixed(1)+','+Y(la).toFixed(1)).join(' ');
+  const x1=X(b[0]),x2=X(b[2]),y1=Y(b[3]),y2=Y(b[1]);const cx=(x1+x2)/2,cy=(y1+y2)/2,w=Math.max(7,x2-x1),h=Math.max(7,y2-y1);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Emprise de la ressource sur un schéma du Sénégal"><polygon points="${pts(SN)}" style="fill:var(--soft);stroke:var(--muted)" stroke-width="1"/><polygon points="${pts(GM)}" style="fill:var(--surface);stroke:var(--muted)" stroke-width=".8" stroke-dasharray="2 2"/><text x="40" y="150" font-size="10" style="fill:var(--muted)">Océan Atlantique</text><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="15" fill="none" style="stroke:var(--accent)" stroke-width="1.5"/><rect x="${(cx-w/2).toFixed(1)}" y="${(cy-h/2).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" style="fill:var(--accent);stroke:var(--accent-strong)" fill-opacity=".45" stroke-width="1.5"/><text x="${W-8}" y="${H-8}" text-anchor="end" font-size="10" style="fill:var(--muted)">Schéma indicatif</text></svg>`;
+}
+const kv=rows=>`<dl class="kv">${rows.filter(Boolean).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+function renderDetail(r){
+  C.rec=r.id;
+  const locked=r.acc==='Restreint',canDl=!locked||S.agent,b=BBOX[S.nv],coll=COLL[S.nv].name,id=uuid(r.id);
+  const dlf=r.fmt.filter(f=>!OGC.includes(f)),svcs=r.fmt.filter(f=>OGC.includes(f));
+  const resId=`SN-${slug(coll).toUpperCase().replace(/_/g,'-')}-${r.id}`;
+  const tabs=[['pres','Présentation'],['data','Données'],['acces','Accès et téléchargement'],['meta','Métadonnées']];
+  const P={};
+  P.pres=`<h2>Résumé</h2><p>${esc(r.ab)}</p><h2>Généalogie</h2><p>${esc(r.lin)}</p><h2>Identification</h2>`+kv([
+    ['Titre',esc(r.t)],['Identifiant de la ressource',`<span class="mono">${resId}</span>`],['Type de ressource',r.type],['Catégorie ISO 19115',`${r.iso} <span class="mono">(${ISO[r.iso]})</span>`],
+    ['Date de création',fmtDate(r.cr)],['Date de révision',fmtDate(r.rev)],['Fréquence de mise à jour',r.freq],['Langue des données','Français'],['Producteur',esc(orgName(r))]]);
+  const bandes=r.rep==='Raster';
+  P.data=(r.type==='Service'?`<h2>Description du service</h2><p>Ce service ne contient pas de données propres : il diffuse les couches du portail selon les standards de l’Open Geospatial Consortium (OGC). Les adresses de connexion figurent dans l’onglet « Accès et téléchargement ».</p>`:
+    `<h2>Caractéristiques</h2>`+kv([
+    ['Représentation spatiale',r.rep],['Type de géométrie',r.geom],r.cnt!=null?['Nombre d’objets',nb(r.cnt)]:null,
+    [bandes?'Résolution':'Échelle de référence',r.sc],['Précision de position',r.pos],['Système de coordonnées','WGS 84 / UTM zone 28N <span class="mono">(EPSG:32628)</span>'],
+    ['Complétude',`<span class="qual"><span class="bar"><span style="width:${r.q}%"></span></span><span>${r.q} %</span></span>`]])+
+    `<h2>${bandes?'Bandes':'Dictionnaire des attributs'}</h2><div class="tbl-wrap"><table class="attr"><thead><tr><th scope="col">${bandes?'Bande':'Champ'}</th><th scope="col">Type</th><th scope="col">Description</th></tr></thead><tbody>${r.at.map(a=>`<tr><td class="mono">${esc(a[0])}</td><td>${esc(a[1])}</td><td>${esc(a[2])}</td></tr>`).join('')}</tbody></table></div>`);
+  P.acces=`<h2>Conditions d’accès et d’utilisation</h2>`+kv([
+    ['Accès',accLabel(r)],['Licence',locked?'Usage interne à la collectivité, diffusion interdite':'Licence ouverte : réutilisation libre, y compris commerciale'],
+    ['Mention obligatoire',`« Source : ${esc(coll)}, ${r.rev.slice(0,4)} »`],locked?['Motif de restriction','Données à caractère personnel ou foncier']:null])+
+    (dlf.length?`<h2>Téléchargement</h2><div class="dl-grid">${dlf.map(f=>`<button type="button" class="btn-s" data-dl="${f}"${canDl?'':' disabled'}>${svg(DL,16)}${f}</button>`).join('')}</div>${canDl?'<p class="hint">Fichiers en WGS 84 / UTM zone 28N, compressés au format ZIP avec la fiche de métadonnées.</p>':'<p class="hint">Connectez-vous à l’espace agents pour télécharger ces données.</p>'}`:'')+
+    (svcs.length?`<h2>Services web</h2><div class="svc">${svcs.map(f=>`<div class="svc-row"><span class="bdg type">${f}</span><span class="mono">${esc(svcUrl(r,f))}</span><button type="button" class="btn-s" data-copyurl="${esc(svcUrl(r,f))}">Copier</button></div>`).join('')}</div><p class="hint">Dans QGIS : Couche › Ajouter une couche › Ajouter une couche WMS/WMTS (ou WFS), puis collez l’adresse.</p>`:'');
+  const csw=`https://carto.[collectivite].sn/csw?SERVICE=CSW&VERSION=2.0.2&REQUEST=GetRecordById&ID=${id}&OUTPUTSCHEMA=http://www.isotc211.org/2005/gmd`;
+  P.meta=`<h2>Informations sur la fiche</h2>`+kv([
+    ['Identifiant de la fiche',`<span class="mono">${id}</span>`],['Norme','ISO 19115:2003 / ISO 19139'],['Langue de la fiche','Français'],['Jeu de caractères','UTF-8'],
+    ['Date de la fiche',fmtDate(r.rev)],['Contact de la fiche',`${esc(COLL[S.nv].name)} – Cellule SIG, sig@[collectivite].sn`],['Catalogue','carto-cegit-map, service CSW']])+
+    `<h2>Export</h2><div class="dl-grid"><button type="button" class="btn-p" data-xml="1">${svg(ICONS.doc,16)}Afficher le XML ISO 19139</button><button type="button" class="btn-s" data-copyurl="${esc(csw)}">Copier l’URL CSW de la fiche</button></div>`;
+  const related=DS.filter(x=>x.id!==r.id&&inScope(x)&&(x.iso===r.iso||x.org===r.org)).slice(0,4);
+  $('cat-detail').innerHTML=`
+  <nav class="crumbs" aria-label="Fil d’Ariane"><button type="button" data-go="home">Accueil</button><span aria-hidden="true">›</span><button type="button" id="det-back">Catalogue de données</button><span aria-hidden="true">›</span><span>${esc(r.t)}</span></nav>
+  <header class="det-head">
+    <div style="min-width:0;flex:1 1 420px">
+      <div class="rec-badges"><span class="bdg type">${r.type}</span>${locked?`<span class="bdg lock">${svg(LOCK,12)}Accès restreint</span>`:'<span class="bdg open">Données ouvertes</span>'}<span class="bdg">${r.iso}</span></div>
+      <h1>${esc(r.t)}</h1>
+      <p class="meta">${esc(orgName(r))} · mis à jour le ${fmtDate(r.rev)} · consultée ${nb(r.views)} fois</p>
+    </div>
+    <div class="det-actions">
+      ${r.map!=null?`<button type="button" class="btn-p" data-showmap="${r.id}">${svg(MAPIC,18)}Voir sur la carte</button>`:''}
+      <button type="button" class="btn-s" data-dtab="acces">${svg(DL,18)}${r.type==='Service'?'Adresses des services':'Télécharger'}</button>
+    </div>
+  </header>
+  <div class="det-grid">
+    <div class="det-main">
+      <div class="dtabs" role="tablist" aria-label="Sections de la fiche">${tabs.map(([k,l])=>`<button type="button" class="dtab" role="tab" id="dtab-${k}" data-dtab="${k}" aria-selected="${C.tab===k}" aria-controls="dpanel" tabindex="${C.tab===k?0:-1}">${l}</button>`).join('')}</div>
+      <div class="dpanel" id="dpanel" role="tabpanel" aria-labelledby="dtab-${C.tab}">${P[C.tab]}</div>
+    </div>
+    <aside class="det-side" aria-label="Informations complémentaires">
+      <div class="card">${thumb(r,true)}</div>
+      <div class="card emprise"><h2>Emprise géographique</h2>${emprise(b)}<div class="bbox"><span>Ouest : ${b[0].toFixed(2).replace('.',',')}°</span><span>Est : ${b[2].toFixed(2).replace('.',',')}°</span><span>Sud : ${b[1].toFixed(2).replace('.',',')}°</span><span>Nord : ${b[3].toFixed(2).replace('.',',')}°</span></div></div>
+      <div class="card"><h2>Mots-clés</h2><div class="kwl">${r.kw.map(k=>`<button type="button" data-kw="${esc(k)}">${esc(k)}</button>`).join('')}</div></div>
+      <div class="card"><h2>Contact</h2><p><strong>${esc(orgName(r))}</strong></p><p>Rôle : point de contact</p><p>[Nom du responsable]</p><p class="mono">sig@[collectivite].sn</p></div>
+      ${related.length?`<div class="card"><h2>Fiches associées</h2><ul class="related">${related.map(x=>`<li><button type="button" class="lnk" data-rec="${x.id}">${esc(x.t)}</button></li>`).join('')}</ul></div>`:''}
+    </aside>
+  </div>`;
+}
+function xmlOf(r){
+  const x=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const cs=v=>`<gco:CharacterString>${x(v)}</gco:CharacterString>`;
+  const cl='http://standards.iso.org/iso/19139/resources/gmxCodelists.xml';
+  const b=BBOX[S.nv],coll=COLL[S.nv].name,raster=r.rep==='Raster';
+  const contact=(ind,role)=>`${ind}<gmd:CI_ResponsibleParty>\n${ind}  <gmd:organisationName>${cs(orgName(r))}</gmd:organisationName>\n${ind}  <gmd:contactInfo><gmd:CI_Contact><gmd:address><gmd:CI_Address><gmd:electronicMailAddress>${cs('sig@[collectivite].sn')}</gmd:electronicMailAddress></gmd:CI_Address></gmd:address></gmd:CI_Contact></gmd:contactInfo>\n${ind}  <gmd:role><gmd:CI_RoleCode codeList="${cl}#CI_RoleCode" codeListValue="${role}"/></gmd:role>\n${ind}</gmd:CI_ResponsibleParty>`;
+  const date=(d,t)=>`        <gmd:date><gmd:CI_Date><gmd:date><gco:Date>${d}</gco:Date></gmd:date><gmd:dateType><gmd:CI_DateTypeCode codeList="${cl}#CI_DateTypeCode" codeListValue="${t}"/></gmd:dateType></gmd:CI_Date></gmd:date>`;
+  const res=r.type==='Service'?'':raster?`      <gmd:spatialResolution><gmd:MD_Resolution><gmd:distance><gco:Distance uom="m">${r.sc==='20 cm'?'0.2':'5'}</gco:Distance></gmd:distance></gmd:MD_Resolution></gmd:spatialResolution>\n`:`      <gmd:spatialResolution><gmd:MD_Resolution><gmd:equivalentScale><gmd:MD_RepresentativeFraction><gmd:denominator><gco:Integer>${r.sc.replace(/\D/g,'').replace(/^1/,'')}</gco:Integer></gmd:denominator></gmd:MD_RepresentativeFraction></gmd:equivalentScale></gmd:MD_Resolution></gmd:spatialResolution>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fiche de démonstration générée par carto-cegit-map : contenu fictif -->
+<gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:gml="http://www.opengis.net/gml">
+  <gmd:fileIdentifier>${cs(uuid(r.id))}</gmd:fileIdentifier>
+  <gmd:language><gmd:LanguageCode codeList="http://www.loc.gov/standards/iso639-2/" codeListValue="fre">fre</gmd:LanguageCode></gmd:language>
+  <gmd:characterSet><gmd:MD_CharacterSetCode codeList="${cl}#MD_CharacterSetCode" codeListValue="utf8"/></gmd:characterSet>
+  <gmd:hierarchyLevel><gmd:MD_ScopeCode codeList="${cl}#MD_ScopeCode" codeListValue="${r.type==='Service'?'service':r.type==='Série de données'?'series':'dataset'}"/></gmd:hierarchyLevel>
+  <gmd:contact>
+${contact('    ','pointOfContact')}
+  </gmd:contact>
+  <gmd:dateStamp><gco:DateTime>${r.rev}T00:00:00</gco:DateTime></gmd:dateStamp>
+  <gmd:metadataStandardName>${cs('ISO 19115:2003/19139')}</gmd:metadataStandardName>
+  <gmd:metadataStandardVersion>${cs('1.0')}</gmd:metadataStandardVersion>
+  <gmd:referenceSystemInfo><gmd:MD_ReferenceSystem><gmd:referenceSystemIdentifier><gmd:RS_Identifier><gmd:code>${cs('EPSG:32628')}</gmd:code></gmd:RS_Identifier></gmd:referenceSystemIdentifier></gmd:MD_ReferenceSystem></gmd:referenceSystemInfo>
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:citation><gmd:CI_Citation>
+        <gmd:title>${cs(r.t)}</gmd:title>
+${date(r.cr,'creation')}
+${date(r.rev,'revision')}
+      </gmd:CI_Citation></gmd:citation>
+      <gmd:abstract>${cs(r.ab)}</gmd:abstract>
+      <gmd:pointOfContact>
+${contact('        ','owner')}
+      </gmd:pointOfContact>
+      <gmd:resourceMaintenance><gmd:MD_MaintenanceInformation><gmd:maintenanceAndUpdateFrequency><gmd:MD_MaintenanceFrequencyCode codeList="${cl}#MD_MaintenanceFrequencyCode" codeListValue="${FREQ[r.freq]||'asNeeded'}"/></gmd:maintenanceAndUpdateFrequency></gmd:MD_MaintenanceInformation></gmd:resourceMaintenance>
+      <gmd:descriptiveKeywords><gmd:MD_Keywords>
+${r.kw.map(k=>`        <gmd:keyword>${cs(k)}</gmd:keyword>`).join('\n')}
+      </gmd:MD_Keywords></gmd:descriptiveKeywords>
+      <gmd:resourceConstraints><gmd:MD_LegalConstraints>
+        <gmd:useLimitation>${cs(r.acc==='Libre'?'Licence ouverte. Mention obligatoire : Source : '+coll+', '+r.rev.slice(0,4):'Accès restreint aux agents habilités de '+coll)}</gmd:useLimitation>
+        <gmd:accessConstraints><gmd:MD_RestrictionCode codeList="${cl}#MD_RestrictionCode" codeListValue="${r.acc==='Libre'?'otherRestrictions':'restricted'}"/></gmd:accessConstraints>
+      </gmd:MD_LegalConstraints></gmd:resourceConstraints>
+${r.type==='Service'?'':`      <gmd:spatialRepresentationType><gmd:MD_SpatialRepresentationTypeCode codeList="${cl}#MD_SpatialRepresentationTypeCode" codeListValue="${raster?'grid':'vector'}"/></gmd:spatialRepresentationType>\n`}${res}      <gmd:language><gmd:LanguageCode codeList="http://www.loc.gov/standards/iso639-2/" codeListValue="fre">fre</gmd:LanguageCode></gmd:language>
+      <gmd:topicCategory><gmd:MD_TopicCategoryCode>${ISO[r.iso]}</gmd:MD_TopicCategoryCode></gmd:topicCategory>
+      <gmd:extent><gmd:EX_Extent><gmd:geographicElement><gmd:EX_GeographicBoundingBox>
+        <gmd:westBoundLongitude><gco:Decimal>${b[0]}</gco:Decimal></gmd:westBoundLongitude>
+        <gmd:eastBoundLongitude><gco:Decimal>${b[2]}</gco:Decimal></gmd:eastBoundLongitude>
+        <gmd:southBoundLatitude><gco:Decimal>${b[1]}</gco:Decimal></gmd:southBoundLatitude>
+        <gmd:northBoundLatitude><gco:Decimal>${b[3]}</gco:Decimal></gmd:northBoundLatitude>
+      </gmd:EX_GeographicBoundingBox></gmd:geographicElement></gmd:EX_Extent></gmd:extent>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmd:distributionInfo><gmd:MD_Distribution>
+${r.fmt.filter(f=>!OGC.includes(f)).map(f=>`    <gmd:distributionFormat><gmd:MD_Format><gmd:name>${cs(f)}</gmd:name><gmd:version>${cs('-')}</gmd:version></gmd:MD_Format></gmd:distributionFormat>`).join('\n')}
+    <gmd:transferOptions><gmd:MD_DigitalTransferOptions>
+${r.fmt.filter(f=>OGC.includes(f)).map(f=>`      <gmd:onLine><gmd:CI_OnlineResource><gmd:linkage><gmd:URL>${x(svcUrl(r,f))}</gmd:URL></gmd:linkage><gmd:protocol>${cs('OGC:'+f)}</gmd:protocol></gmd:CI_OnlineResource></gmd:onLine>`).join('\n')}
+    </gmd:MD_DigitalTransferOptions></gmd:transferOptions>
+  </gmd:MD_Distribution></gmd:distributionInfo>
+  <gmd:dataQualityInfo><gmd:DQ_DataQuality>
+    <gmd:scope><gmd:DQ_Scope><gmd:level><gmd:MD_ScopeCode codeList="${cl}#MD_ScopeCode" codeListValue="${r.type==='Service'?'service':'dataset'}"/></gmd:level></gmd:DQ_Scope></gmd:scope>
+    <gmd:lineage><gmd:LI_Lineage><gmd:statement>${cs(r.lin)}</gmd:statement></gmd:LI_Lineage></gmd:lineage>
+  </gmd:DQ_DataQuality></gmd:dataQualityInfo>
+</gmd:MD_Metadata>`;
+}
+function copyText(txt,ok){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toastHome(ok),()=>toastHome('Copie impossible ici : sélectionnez le texte pour le copier.'));}else toastHome('Copie impossible ici : sélectionnez le texte pour le copier.');}
+let lastFocus=null;
+function openXml(r){lastFocus=document.activeElement;$('xml-pre').textContent=xmlOf(r);$('xml-modal').hidden=false;$('xml-close').focus();}
+function closeXml(){$('xml-modal').hidden=true;if(lastFocus)lastFocus.focus();}
+function setNav(id){document.querySelectorAll('.nav-i').forEach(n=>{const on=n.id===id;n.classList.toggle('active',on);if(on)n.setAttribute('aria-current','page');else n.removeAttribute('aria-current');});}
+function showList(){C.rec=null;$('cat-head').hidden=false;$('cat-list').hidden=false;$('cat-detail').hidden=true;renderCatalog();}
+function openRec(id){C.scroll=window.scrollY;$('cat-head').hidden=true;$('cat-list').hidden=true;$('cat-detail').hidden=false;renderDetail(byId(id));window.scrollTo(0,0);}
+function showCatalog(){S.map=null;setMeasure(false);$('view-home').hidden=true;$('view-map').hidden=true;$('view-data').hidden=false;$('footer').hidden=false;setNav('nav-data');showList();window.scrollTo(0,0);}
+function refreshCatalog(){if($('view-data').hidden)return;if(C.rec){const r=byId(C.rec);if(inScope(r))renderDetail(r);else showList();}else renderCatalog();}
+const CV=$('view-data');
+CV.addEventListener('click',e=>{
+  const t=e.target;let b;
+  if(t.closest('[data-go="home"]')){goHome();window.scrollTo(0,0);return;}
+  if((b=t.closest('[data-showmap]'))){const r=byId(b.dataset.showmap);if(r.acc==='Restreint'&&!S.agent){toastHome('Données réservées aux agents : connectez-vous à l’espace agents.');return;}openMap(r.map);return;}
+  if((b=t.closest('[data-dl]'))){toastHome(`Téléchargement de « ${byId(C.rec).t} » au format ${b.dataset.dl} (démonstration : aucun fichier n’est généré).`);return;}
+  if((b=t.closest('[data-copyurl]'))){copyText(b.dataset.copyurl,'Adresse copiée dans le presse-papiers');return;}
+  if((b=t.closest('[data-kw]'))){C.q=b.dataset.kw;$('cq').value=C.q;C.f={};C.page=1;showList();window.scrollTo(0,0);return;}
+  if((b=t.closest('[data-rmf]'))){const [k,v]=b.dataset.rmf.split('|').map(decodeURIComponent);C.f[k]=(C.f[k]||[]).filter(x=>x!==v);C.page=1;renderCatalog();return;}
+  if(t.closest('[data-rmq]')){C.q='';$('cq').value='';C.page=1;renderCatalog();return;}
+  if(t.closest('#clear-all')){C.f={};C.q='';$('cq').value='';C.page=1;renderCatalog();return;}
+  if((b=t.closest('[data-page]'))){if(b.disabled)return;C.page=+b.dataset.page;renderCatalog();$('cat-list').scrollIntoView();return;}
+  if((b=t.closest('[data-dtab]'))){C.tab=b.dataset.dtab;renderDetail(byId(C.rec));const tb=$('dtab-'+C.tab);if(tb)tb.focus();return;}
+  if(t.closest('#det-back')){showList();window.scrollTo(0,C.scroll||0);return;}
+  if(t.closest('[data-xml]')){openXml(byId(C.rec));return;}
+  if((b=t.closest('[data-rec]'))){C.tab=b.dataset.tab||'pres';openRec(b.dataset.rec);return;}
+  if(t.closest('#vt-list')){C.view='list';renderCatalog();return;}
+  if(t.closest('#vt-grid')){C.view='grid';renderCatalog();return;}
+  if(t.closest('#facet-toggle')){const f=$('facets');const open=f.classList.toggle('collapsed')===false;$('facet-toggle').setAttribute('aria-expanded',open);return;}
+  if(t===$('xml-modal')){closeXml();return;}
+});
+CV.addEventListener('change',e=>{
+  const i=e.target;
+  if(i.dataset&&i.dataset.fk){const k=i.dataset.fk,v=decodeURIComponent(i.dataset.fv);const a=C.f[k]||(C.f[k]=[]);if(i.checked){if(!a.includes(v))a.push(v);}else C.f[k]=a.filter(x=>x!==v);C.page=1;const fid=i.id;renderCatalog();const el=$(fid);if(el)el.focus();}
+  else if(i.id==='cat-sort'){C.sort=i.value;C.page=1;renderCatalog();}
+});
+CV.addEventListener('toggle',e=>{const d=e.target;if(d.dataset&&d.dataset.fset)C.closed[d.dataset.fset]=!d.open;},true);
+CV.addEventListener('keydown',e=>{const tb=e.target.closest&&e.target.closest('.dtab');if(!tb||!['ArrowRight','ArrowLeft'].includes(e.key))return;const ks=['pres','data','acces','meta'];let i=ks.indexOf(C.tab)+(e.key==='ArrowRight'?1:-1);i=(i+ks.length)%ks.length;C.tab=ks[i];renderDetail(byId(C.rec));$('dtab-'+C.tab).focus();e.preventDefault();});
+$('cat-form').addEventListener('submit',e=>{e.preventDefault();C.q=$('cq').value;C.page=1;renderCatalog();});
+let cqT;$('cq').addEventListener('input',()=>{clearTimeout(cqT);cqT=setTimeout(()=>{C.q=$('cq').value;C.page=1;renderCatalog();},200);});
+$('xml-close').onclick=closeXml;
+$('xml-copy').onclick=()=>copyText($('xml-pre').textContent,'XML copié dans le presse-papiers');
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('xml-modal').hidden){closeXml();e.stopPropagation();}},true);
+
+/* ---------- Vue aérienne procédurale (fond du bandeau) ---------- */
+function drawSat(){
+  const cv=$('sat');if(!cv)return;const box=cv.getBoundingClientRect();if(!box.width)return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);const W=Math.round(box.width),H=Math.round(box.height);
+  cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  let seed=20261014;const r=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const pick=a=>a[Math.floor(r()*a.length)];
+  // sol latéritique
+  g.fillStyle='#B08C62';g.fillRect(0,0,W,H);
+  const soils=['#A3805A','#C2A076','#957452','#B9976C','#8C6E4D','#CBB08A'];
+  for(let i=0;i<W*H/900;i++){g.globalAlpha=.18+r()*.25;g.fillStyle=pick(soils);g.beginPath();g.arc(r()*W,r()*H,8+r()*60,0,7);g.fill();}
+  g.globalAlpha=1;
+  // quartiers : trames de rues orientées
+  const districts=[];const cols=Math.max(3,Math.ceil(W/320));
+  for(let i=0;i<cols;i++)for(let j=0;j<3;j++)districts.push({x:(i+.15+r()*.7)*W/cols,y:(j+.2+r()*.6)*H/3,a:(r()-.5)*.5,s:34+r()*22});
+  for(const d of districts){
+    g.save();g.translate(d.x,d.y);g.rotate(d.a);
+    const R=210;
+    // îlots bâtis
+    for(let bx=-R;bx<R;bx+=d.s)for(let by=-R;by<R;by+=d.s){
+      if(Math.hypot(bx,by)>R*(.75+r()*.35))continue;
+      g.fillStyle='rgba(120,100,80,.25)';g.fillRect(bx+3,by+3,d.s-6,d.s-6);
+      const n=3+Math.floor(r()*6);
+      for(let k=0;k<n;k++){const w=5+r()*11,h=5+r()*11;
+        g.fillStyle=pick(['#DCD5C8','#C9C0B2','#B3A99C','#E8E3D8','#C67C4C','#9D9488','#D6CBB6']);
+        g.fillRect(bx+4+r()*(d.s-8-w),by+4+r()*(d.s-8-h),w,h);
+        g.fillStyle='rgba(40,30,20,.22)';g.fillRect(bx+4+r()*(d.s-8-w)+w,by+4,1.5,h*.6);}
+      if(r()<.25){g.fillStyle=pick(['#3E5631','#4B663A','#56703F']);g.beginPath();g.arc(bx+r()*d.s,by+r()*d.s,3+r()*6,0,7);g.fill();}
+    }
+    // rues
+    g.strokeStyle='rgba(168,152,130,.9)';g.lineWidth=2.5;
+    for(let x=-R;x<=R;x+=d.s){g.beginPath();g.moveTo(x,-R);g.lineTo(x,R);g.stroke();}
+    for(let y=-R;y<=R;y+=d.s){g.beginPath();g.moveTo(-R,y);g.lineTo(R,y);g.stroke();}
+    g.restore();
+  }
+  // grands axes et voie ferrée
+  const axis=(pts,w,c)=>{g.strokeStyle=c;g.lineWidth=w;g.lineCap='round';g.beginPath();g.moveTo(pts[0],pts[1]);g.bezierCurveTo(pts[2],pts[3],pts[4],pts[5],pts[6],pts[7]);g.stroke();};
+  axis([-20,H*.62,W*.3,H*.45,W*.6,H*.7,W+20,H*.48],11,'#7E776D');axis([-20,H*.62,W*.3,H*.45,W*.6,H*.7,W+20,H*.48],7,'#9A9184');
+  axis([W*.35,-20,W*.42,H*.4,W*.3,H*.7,W*.38,H+20],8,'#8A8276');
+  axis([W*.72,-20,W*.66,H*.3,W*.8,H*.6,W*.7,H+20],7,'#8A8276');
+  axis([-20,H*.25,W*.4,H*.2,W*.7,H*.35,W+20,H*.18],3,'#5B544C');
+  // végétation et arbres isolés
+  for(let i=0;i<W*H/2600;i++){const x=r()*W,y=r()*H;const c=pick(['#3A522E','#465F36','#52693E','#2F4527']);
+    g.fillStyle=c;g.beginPath();g.arc(x,y,2+r()*7,0,7);g.fill();g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.arc(x+2,y+2,2+r()*4,0,7);g.fill();}
+  // voile sombre pour la lisibilité
+  const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(22,22,21,.62)');gr.addColorStop(1,'rgba(22,22,21,.78)');
+  g.fillStyle=gr;g.fillRect(0,0,W,H);
+  const vg=g.createRadialGradient(W/2,H/2,Math.min(W,H)*.2,W/2,H/2,Math.max(W,H)*.7);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.35)');
+  g.fillStyle=vg;g.fillRect(0,0,W,H);
+}
+let satT;window.addEventListener('resize',()=>{clearTimeout(satT);satT=setTimeout(drawSat,150);});
+renderHome();
+drawSat();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawSat);
+})();
+</script>
