@@ -9,6 +9,7 @@ Les cartes sont organisées par thème et rattachées aux compétences des colle
 - Accueil avec recherche, filtres par thème et accès grand public / agents et élus
 - 47 cartes réparties en 10 thèmes, chacune rattachée à un article du CGCT
 - Visionneuse : couches activables, zoom et déplacement, fiche d'information, mesure de distance
+- Catalogue de données (onglet « Données »), inspiré de GeoNetwork : recherche plein texte, filtres à facettes, fiches de métadonnées ISO 19115 avec dictionnaire des attributs, services OGC et export XML ISO 19139
 - Sélecteur de démonstration : modèle commune, ville ou département
 
 ## Consulter
